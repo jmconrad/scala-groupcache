@@ -16,13 +16,29 @@ limitations under the License.
 
 package groupcache
 
-import org.scalatest._
-import matchers.ShouldMatchers
+import groupcachepb.{GetRequest, GetResponse}
 
-class GroupCacheSpec extends FlatSpec with ShouldMatchers {
-  "A group cache" should "get" in {
-    val cache = new GroupCache
-    cache.get(5) should equal (6)
+trait ProtoGetter {
+  def get(context: Option[Any], in: GetRequest, out: GetResponse) : Unit
+}
+
+trait PeerPicker {
+  def pickPeer(key: String) : (Option[ProtoGetter], Boolean)
+}
+
+object NoPeers extends PeerPicker {
+  def pickPeer(key: String): (Option[ProtoGetter], Boolean) = {
+    (None, false)
+  }
+}
+
+class Peer(peerPickerFn: () => Option[PeerPicker] = () => None) {
+  def getPeers: PeerPicker = {
+    val picker = peerPickerFn()
+    picker match {
+      case Some(p: PeerPicker) => p
+      case None => NoPeers
+    }
   }
 }
 

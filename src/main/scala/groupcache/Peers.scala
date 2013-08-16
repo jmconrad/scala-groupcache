@@ -1,5 +1,0 @@
-package groupcache
-
-class Peers {
-
-}
