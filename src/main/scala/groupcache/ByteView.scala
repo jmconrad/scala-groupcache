@@ -20,7 +20,7 @@ package groupcache
  * A ByteView holds an immutable view of bytes
  * @param value Either a byte array or a string that will be exposed as a view of bytes
  */
-class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*/ {
+class ByteView(private[groupcache] var value: Either[Array[Byte], String]) /*extends AnyVal*/ {
   /**
    * Gets the length of this view
    */
@@ -41,7 +41,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
    * Gets a string representation of this view
    */
   override def toString: String = value match {
-    case v if v.isLeft => v.left.get.toString
+    case v if v.isLeft => new String(v.left.get)
     case v => v.right.get
   }
 
@@ -97,7 +97,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
   }
 
   /**
-   * Determins if the given string is equal to this view
+   * Determines if the given string is equal to this view
    */
   private def equalsString(str: String): Boolean = {
     if (value.isRight) {
@@ -118,7 +118,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
   }
 
   /**
-   * Determins if the given byte array is equal to this view
+   * Determines if the given byte array is equal to this view
    */
   private def equalsBytes(bytes: Array[Byte]): Boolean = {
     if (value.isLeft) {

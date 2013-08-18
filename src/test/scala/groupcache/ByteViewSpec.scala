@@ -54,7 +54,7 @@ class ByteViewSpec extends FlatSpec with ShouldMatchers {
   "A byte view containing a byte array" should "have a string representation of that byte array" in {
     val bytes = Array[Byte]('t', 'e', 's', 't')
     val view = ByteView(bytes)
-    view.toString should equal (bytes.toString)
+    view.toString should equal (new String(bytes))
   }
 
   "A byte view containing a string" should "return its second character when at(1) is called" in {

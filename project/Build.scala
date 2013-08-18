@@ -4,7 +4,6 @@ import scalabuff.ScalaBuffPlugin._
 
 object build extends Build {
   val dependencies = Seq(
-    "org.scalatest" % "scalatest_2.10" % "1.9.1" % "test",
     "net.sandrogrzicic" %% "scalabuff-runtime" % "1.3.5"
   )
 
