@@ -16,9 +16,17 @@ limitations under the License.
 
 package groupcache
 
-import org.scalatest._
-import matchers.ShouldMatchers
+import java.util.concurrent.atomic.AtomicInteger
 
-class GroupCacheSpec extends FlatSpec with ShouldMatchers {
+class GroupStats {
+  val gets = new AtomicInteger(0)
+  val cacheHits = new AtomicInteger(0)
+  val peerLoads = new AtomicInteger(0)
+  val peerErrors = new AtomicInteger(0)
+  val loads = new AtomicInteger(0)
+  val loadsDeduped = new AtomicInteger(0)
+  val localLoads = new AtomicInteger(0)
+  val localLoadErrs = new AtomicInteger(0)
+  val serverRequests = new AtomicInteger()
 }
 

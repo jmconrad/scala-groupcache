@@ -104,6 +104,13 @@ class Cache[Key, Value](private val maxEntries: Int = 0,
   }
 
   /**
+   * Gets the number of entries currently held in the cache.
+   */
+  def itemCount: Int = {
+    lruTracker.length
+  }
+
+  /**
    * Removes the given entry from the cache.  Invokes the onEvicted() function
    * if defined.
    * @param entry

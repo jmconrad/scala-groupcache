@@ -16,7 +16,42 @@ limitations under the License.
 
 package groupcache
 
-class GroupCache {
-  def get(i: Int) : Int = i + 1
+import collection.mutable.Map
+import sinks.Sink
+import peers.PeerPicker
+import java.util.concurrent.locks.ReentrantReadWriteLock
+
+object GroupCache {
+  type Getter = (Any, String, Sink) => Unit
+
+  private val rwLock = new ReentrantReadWriteLock
+  private val groups = Map[String, Group]()
+
+  def getGroup(name: String): Option[Group] = {
+    rwLock.readLock.lock
+    try {
+      groups.get(name)
+    }
+    finally {
+      rwLock.readLock.unlock
+    }
+  }
+
+  def addGroup(name: String, cacheBytes: Long, getter: Getter, peers: PeerPicker): Group = {
+    rwLock.writeLock.lock
+    try {
+      if (groups.contains(name)) {
+        // TODO: throw a better type of exception.
+        throw new Exception("A group with this name already exists.")
+      }
+
+      val group = new Group(name, getter, peers)
+      groups += name -> group
+      group
+    }
+    finally {
+      rwLock.writeLock.unlock
+    }
+  }
 }
 

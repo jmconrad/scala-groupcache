@@ -26,7 +26,7 @@ class ByteView(private[groupcache] var value: Either[Array[Byte], String]) /*ext
    */
   def length: Int = value match {
     case v if v.isLeft => v.left.get.length
-    case v => v.right.get.length
+    case v => v.right.get.getBytes.length
   }
 
   /**

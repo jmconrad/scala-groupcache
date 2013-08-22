@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache
+package groupcache.lru
 
-import org.scalatest._
-import matchers.ShouldMatchers
-
-class GroupCacheSpec extends FlatSpec with ShouldMatchers {
+class CacheStats(val bytes: Long,
+                 val items: Long,
+                 val gets: Long,
+                 val hits: Long,
+                 val evictions: Long) {
 }
 

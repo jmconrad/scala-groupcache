@@ -14,31 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache
-
-import groupcachepb.{GetRequest, GetResponse}
-
-trait ProtoGetter {
-  def get(context: Option[Any], in: GetRequest, out: GetResponse) : Unit
-}
+package groupcache.peers
 
 trait PeerPicker {
-  def pickPeer(key: String) : (Option[ProtoGetter], Boolean)
-}
-
-object NoPeers extends PeerPicker {
-  def pickPeer(key: String): (Option[ProtoGetter], Boolean) = {
-    (None, false)
-  }
-}
-
-class Peer(peerPickerFn: () => Option[PeerPicker] = () => None) {
-  def getPeers: PeerPicker = {
-    val picker = peerPickerFn()
-    picker match {
-      case Some(p: PeerPicker) => p
-      case None => NoPeers
-    }
-  }
+  def pickPeer(key: String) : Option[Peer]
 }
 

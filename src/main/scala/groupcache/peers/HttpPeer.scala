@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache
+package groupcache.peers
 
-import org.scalatest._
-import matchers.ShouldMatchers
+import groupcachepb.{GetResponse, GetRequest}
 
-class GroupCacheSpec extends FlatSpec with ShouldMatchers {
+class HttpPeer(private val url: String) extends Peer {
+  def get(context: Option[Any], in: GetRequest, out: GetResponse): Unit = {
+    throw new NotImplementedError
+  }
 }
 
