@@ -16,14 +16,14 @@ limitations under the License.
 
 package groupcache
 
-import _root_.groupcachepb.{GetResponse, GetRequest}
+import groupcachepb.GetRequest
 import groupcache.lru.SynchronizedCache
 import peers.{Peer, NoPeerPicker, PeerPicker}
 import groupcache.sinks.Sink
 import singleflight.SingleFlight
 import scala.concurrent._
 import ExecutionContext.Implicits.global
-import scala.util.{Random, Failure, Success}
+import scala.util.Random
 import com.google.protobuf.ByteString
 
 class Group(val name: String,
@@ -59,68 +59,55 @@ class Group(val name: String,
 
     val f = load(context, key, dest)
 
-    f onComplete {
-      case Success(result) => {
-        if (!result.destPopulated) {
-          setSinkView(dest, result.value)
-        }
-
-        promise.success(result.value)
+    f.map(result => {
+      if (!result.destPopulated) {
+        setSinkView(dest, result.value)
       }
 
-      case Failure(t) => promise.failure(t)
-    }
-
-    promise.future
+      result.value
+    })
   }
 
-  private class LoadResult(val value: ByteView, val destPopulated: Boolean) {}
+  private class LoadResult(val value: ByteView, val destPopulated: Boolean)
 
   private def load(context: Option[Any], key: String, dest: Sink): Future[LoadResult] = {
-    stats.loads.incrementAndGet()
+    this.stats.loads.incrementAndGet()
     var destPopulated = false
 
     val result = loadGroup.execute(key, () => {
-      stats.loadsDeduped.incrementAndGet
+      this.stats.loadsDeduped.incrementAndGet
 
       peers.pickPeer(key) match {
         case None => {
-          try {
-            val localVal = getLocally(context, key, dest)
-            stats.localLoads.incrementAndGet
+          val localFuture = getLocally(context, key, dest)
+          localFuture onFailure {
+            case _ => this.stats.localLoadErrs.incrementAndGet()
+          }
 
-            // Only one caller of load() gets this value.
+          localFuture.map(localVal => {
+            this.stats.localLoads.incrementAndGet
+             // Only one caller of load() gets this value.
             destPopulated = true
-            populateCache(key, localVal, this.mainCache)
+            this.populateCache(key, localVal, this.mainCache)
             localVal
-          }
-          catch {
-            case e: Throwable => stats.localLoadErrs.incrementAndGet
-                                 throw e
-          }
+          })
         }
 
         case Some(p: Peer) => {
-          try {
-            val peerValue = getFromPeer(context, p, key)
-            stats.peerLoads.incrementAndGet
+          val peerFuture = getFromPeer(context, p, key)
+          peerFuture onFailure {
+            case _ => this.stats.peerErrors.incrementAndGet()
+          }
+
+          peerFuture.map(peerValue => {
+            this.stats.peerLoads.incrementAndGet()
             peerValue
-          }
-          catch {
-            case e: Throwable => stats.peerErrors.incrementAndGet
-                                 throw e
-          }
+          })
         }
       }
     })
 
-    val promise = Promise[LoadResult]()
-    result onComplete {
-      case Success(lr) => promise.success(new LoadResult(lr, destPopulated))
-      case Failure(t) => promise.failure(t)
-    }
-
-    promise.future
+    result.map(byteView => new LoadResult(byteView, destPopulated))
   }
 
   private def lookupCache(key: String): Option[ByteView] = {
@@ -134,30 +121,33 @@ class Group(val name: String,
     }
   }
 
-  private def getLocally(context: Option[Any], key: String, dest: Sink): ByteView = {
+  private def getLocally(context: Option[Any], key: String, dest: Sink): Future[ByteView] = {
     this.blockingGetter(context, key, dest)
-    dest.view
+
+    future {
+      dest.view
+    }
   }
 
-  private def getFromPeer(context: Option[Any], peer: Peer, key: String): ByteView = {
+  private def getFromPeer(context: Option[Any], peer: Peer, key: String): Future[ByteView] = {
     val request = new GetRequest(this.name, key)
-    val response = GetResponse.defaultInstance
+    val f = peer.get(context, request)
 
-    peer.get(context, request, response)
+    f.map(response => {
+      val byteView = response.`value` match {
+        case Some(byteString: ByteString) => ByteView(byteString.toByteArray)
+        case _ => ByteView(Array[Byte]())
+      }
 
-    val byteView = response.`value` match {
-      case Some(byteString: ByteString) => ByteView(byteString.toByteArray)
-      case _ => ByteView(Array[Byte]())
-    }
+      // Populate the local hot cache a percentage of the time a value is
+      // fetched from a peer.  Should probably use something more logical
+      // to determine if it needs to go into the hot cache.
+      if (Random.nextInt(10) == 0) {
+        populateCache(key, byteView, this.hotCache)
+      }
 
-    // Populate the local hot cache a percentage of the time a value is
-    // fetched from a peer.  Should probably use something more logical
-    // to determine if it needs to go into the hot cache.
-    if (Random.nextInt(10) == 0) {
-      populateCache(key, byteView, this.hotCache)
-    }
-
-    byteView
+      byteView
+    })
   }
 
   private def populateCache(key: String, value: ByteView, cache: SynchronizedCache): Unit = {

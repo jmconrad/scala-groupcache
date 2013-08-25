@@ -25,7 +25,7 @@ class SingleFlight[Key, Value] {
   private val lock = new ReentrantLock
   private val map = Map[Key, Future[Value]]()
 
-  def execute(key: Key, blockingFn: () => Value): Future[Value] = {
+  def execute(key: Key, fn: () => Future[Value]): Future[Value] = {
     lock.lock
     val value = map.get(key)
 
@@ -39,9 +39,7 @@ class SingleFlight[Key, Value] {
     map.put(key, promise.future)
     lock.unlock
 
-    val f = future {
-      blockingFn()
-    }
+    val f = fn()
 
     f onComplete {
       case _ => lock.lock

@@ -16,25 +16,32 @@ limitations under the License.
 
 package groupcache.peers
 
+import java.util.concurrent.locks.ReentrantLock
 import java.util.zip.CRC32
 
 class HttpPoolPeerPicker(private val baseUrl: String,
-                         private val basePath: String = "/_groupcache/",
+                         private val basePath: String = "/_groupcache",
                          private val peers: Array[String]) extends PeerPicker {
+
+  private val lock = new ReentrantLock
 
   def pickPeer(key: String): Option[Peer] = {
     val sum = checksum(key)
+    var pickedPeer: Option[Peer] = None
 
-    peers.synchronized {
-      if (peers.length == 0) {
-        return None
+    if (peers.length > 0) {
+      lock.lock
+      try {
+        peers(sum % peers.length) match {
+          case p if p != baseUrl => pickedPeer = Some(new HttpPeer(p, basePath))
+        }
       }
-
-      peers(sum % peers.length) match {
-        case p if p == baseUrl => None
-        case p => Some(new HttpPeer(p + basePath))
+      finally {
+        lock.unlock
       }
     }
+
+    pickedPeer
   }
 
   private def checksum(key: String): Int = {

@@ -17,8 +17,9 @@ limitations under the License.
 package groupcache.peers
 
 import groupcachepb.{GetRequest, GetResponse}
+import concurrent.Future
 
 trait Peer {
-  def get(context: Option[Any], in: GetRequest, out: GetResponse): Unit
+  def get(context: Option[Any], in: GetRequest): Future[GetResponse]
 }
 
