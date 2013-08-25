@@ -45,7 +45,7 @@ object GroupCache {
         throw new Exception("A group with this name already exists.")
       }
 
-      val group = new Group(name, getter, peers)
+      val group = new Group(name, getter, peers, 0, 0)
       groups += name -> group
       group
     }

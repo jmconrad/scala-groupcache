@@ -14,16 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache.sinks
+package groupcache
 
-import com.google.protobuf.MessageLite
-import groupcache.ByteView
-
-trait Sink {
-  def setString(str: String): Unit
-  def setBytes(bytes: Array[Byte]): Unit
-  def setProto(msg: MessageLite): Unit
-
-  private[groupcache] def view: ByteView
+object CacheType extends Enumeration {
+  type CacheType = Value
+  val MainCache, HotCache = Value
 }
 

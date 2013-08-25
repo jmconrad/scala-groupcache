@@ -19,6 +19,6 @@ package groupcache.peers
 import groupcachepb.{GetRequest, GetResponse}
 
 trait Peer {
-  def get(context: Option[Any], in: GetRequest, out: GetResponse)
+  def get(context: Option[Any], in: GetRequest, out: GetResponse): Unit
 }
 

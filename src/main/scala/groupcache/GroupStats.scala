@@ -27,6 +27,6 @@ class GroupStats {
   val loadsDeduped = new AtomicInteger(0)
   val localLoads = new AtomicInteger(0)
   val localLoadErrs = new AtomicInteger(0)
-  val serverRequests = new AtomicInteger()
+  val serverRequests = new AtomicInteger(0)
 }
 

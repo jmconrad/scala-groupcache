@@ -31,5 +31,9 @@ class ByteViewSink(private val dst: ByteView) extends Sink {
   def setProto(msg: MessageLite): Unit = {
     dst.value = Left(msg.toByteArray)
   }
+
+  private[groupcache] def view: ByteView = {
+    dst
+  }
 }
 

@@ -21,7 +21,7 @@ import com.google.protobuf.MessageLite
 import groupcache.ByteView
 
 class AllocatingByteSliceSink(private val dst: ArrayBuffer[Byte]) extends Sink {
-  private val view = ByteView(dst.toArray)
+  private[groupcache] val view = ByteView(dst.toArray)
 
   def setString(str: String) {
     val bytes = str.getBytes

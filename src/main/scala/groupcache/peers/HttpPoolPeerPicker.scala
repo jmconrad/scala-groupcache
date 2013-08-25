@@ -31,7 +31,7 @@ class HttpPoolPeerPicker(private val baseUrl: String,
       }
 
       peers(sum % peers.length) match {
-        case p if p != baseUrl => None
+        case p if p == baseUrl => None
         case p => Some(new HttpPeer(p + basePath))
       }
     }

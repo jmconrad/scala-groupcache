@@ -20,7 +20,7 @@ import com.google.protobuf.MessageLite
 import groupcache.ByteView
 
 class ProtoSink(private val dst: MessageLite) extends Sink {
-  private val view = ByteView(dst.toByteArray)
+  private[groupcache] val view = ByteView(dst.toByteArray)
 
   def setString(str: String): Unit = {
     val bytes = str.getBytes
