@@ -17,16 +17,28 @@ limitations under the License.
 package groupcache.http
 
 import groupcachepb.{GetResponse, GetRequest}
-import java.net.{URL, URLEncoder}
-import com.twitter.finagle.builder.ClientBuilder
+import java.net._
+import com.twitter.finagle.builder.{ServerBuilder, ClientBuilder}
 import com.twitter.finagle.http.Http
 import org.jboss.netty.handler.codec.http._
-import org.jboss.netty.handler.codec.http.HttpResponseStatus.OK
-import concurrent.{Promise, Future}
+import org.jboss.netty.handler.codec.http.HttpResponseStatus.{OK, BAD_REQUEST, NOT_FOUND}
+import org.jboss.netty.util.CharsetUtil.UTF_8
 import groupcache.peers.{PeerPicker, Peer}
 import java.util.zip.CRC32
 import java.util.concurrent.locks.ReentrantLock
 import groupcache.group.GroupRegister
+import com.twitter.finagle.Service
+import com.twitter.util.{Future => FinagleFuture, Promise => FinaglePromise}
+import HttpMethod.GET
+import HttpVersion.HTTP_1_1
+import scala.Some
+import groupcache.sinks.AllocatingByteSliceSink
+import collection.mutable.ArrayBuffer
+import util.{Failure, Success}
+import com.google.protobuf.ByteString
+import org.jboss.netty.buffer.ChannelBuffers.copiedBuffer
+import scala.concurrent._
+import ExecutionContext.Implicits.global
 
 class HttpPeerException(msg: String) extends Exception(msg)
 
@@ -49,7 +61,7 @@ class HttpPeer(private val baseUrl: URL,
     val path = s"$basePath/$group/$key"
     val hostAndPort = s"$host:$port"
     val httpClient = ClientBuilder().codec(Http()).hosts(hostAndPort).hostConnectionLimit(1).build()
-    val httpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
+    val httpRequest = new DefaultHttpRequest(HTTP_1_1, GET, path)
     val responseFuture = httpClient(httpRequest)
     val promise = Promise[GetResponse]()
 
@@ -120,6 +132,65 @@ class HttpPeer(private val baseUrl: URL,
     val bytes = key.getBytes
     crc.update(bytes, 0, bytes.length)
     crc.getValue.toInt
+  }
+
+  def serveHttp: Unit = {
+    val service = new Service[HttpRequest, HttpResponse] {
+      def apply(request: HttpRequest): FinagleFuture[HttpResponse] = {
+        val uri = new URI(request.getUri)
+        val path = uri.getPath
+
+        if (!path.startsWith(basePath)) {
+          val unknownPathResponse = new DefaultHttpResponse(HTTP_1_1, BAD_REQUEST)
+          unknownPathResponse.setContent(copiedBuffer(s"Unknown path: $path", UTF_8))
+          return FinagleFuture(unknownPathResponse)
+        }
+
+        val parts = path.split('/')
+        if (parts.length != 2) {
+          val invalidPathResponse = new DefaultHttpResponse(HTTP_1_1, BAD_REQUEST)
+          invalidPathResponse.setContent(copiedBuffer(s"Invalid path: $path", UTF_8))
+          return FinagleFuture(invalidPathResponse)
+        }
+
+        val groupName = URLDecoder.decode(parts(0), "UTF-8")
+        val key = URLDecoder.decode(parts(1), "UTF-8")
+        val groupOption = groupRegister.getGroup(groupName)
+
+        if (!groupOption.isDefined) {
+          val notFoundResponse = new DefaultHttpResponse(HTTP_1_1, NOT_FOUND)
+          notFoundResponse.setContent(copiedBuffer(s"Group not found: $groupName", UTF_8))
+          return FinagleFuture(notFoundResponse)
+        }
+
+        val group = groupOption.get
+        val buffer = new ArrayBuffer[Byte]()
+        val futureResponse = new FinaglePromise[HttpResponse]()
+        val futureValue = group.get(None, key, new AllocatingByteSliceSink(buffer))
+
+        futureValue onComplete {
+          case Success(byteView) => {
+            try {
+              val getResponse = new GetResponse(Some(ByteString.copyFrom(buffer.toArray)))
+              val successResponse = new DefaultHttpResponse(HTTP_1_1, OK)
+              successResponse.setContent(copiedBuffer(getResponse.toByteArray))
+              futureResponse.setValue(successResponse)
+            }
+            catch {
+              case t: Throwable => futureResponse.setException(t)
+            }
+          }
+          case Failure(t) => futureResponse.setException(t)
+        }
+
+        futureResponse
+      }
+    }
+
+    ServerBuilder().codec(Http())
+                   .bindTo(new InetSocketAddress(this.port))
+                   .name("GroupCacheHttpServer")
+                   .build(service)
   }
 }
 

@@ -122,9 +122,8 @@ class Group(val name: String,
   }
 
   private def getLocally(context: Option[Any], key: String, dest: Sink): Future[ByteView] = {
-    this.blockingGetter(context, key, dest)
-
     future {
+      this.blockingGetter(context, key, dest)
       dest.view
     }
   }

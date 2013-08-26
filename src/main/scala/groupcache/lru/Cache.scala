@@ -30,7 +30,7 @@ import collection.mutable.{ListBuffer, Map}
 class Cache[Key, Value](private val maxEntries: Int = 0,
                         private val onEvicted: Option[(Key, Value) => Unit] = None) {
 
-  private class CacheEntry(val key: Key, var value: Value) {}
+  private class CacheEntry(val key: Key, var value: Value)
   private val lruTracker = ListBuffer[CacheEntry]()
   private val internalCache = Map[Key, CacheEntry]()
 
