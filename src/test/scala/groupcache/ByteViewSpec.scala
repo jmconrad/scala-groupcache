@@ -18,6 +18,7 @@ package groupcache
 
 import org.scalatest._
 import matchers.ShouldMatchers
+import util.ByteView
 
 class ByteViewSpec extends FlatSpec with ShouldMatchers {
   "A byte view" should "have a length of 5 when constructed from a 5 character string" in {

@@ -18,7 +18,7 @@ package groupcache.sinks
 
 import collection.mutable.ArrayBuffer
 import com.google.protobuf.MessageLite
-import groupcache.ByteView
+import groupcache.util.ByteView
 
 class TruncatingByteSliceSink(private val dst: ArrayBuffer[Byte], private val size: Int) extends Sink {
   private[groupcache] val view = ByteView(dst.toArray)

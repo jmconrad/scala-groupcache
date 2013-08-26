@@ -16,8 +16,8 @@ limitations under the License.
 
 package groupcache.lru
 
-import groupcache.ByteView
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import groupcache.util.ByteView
 
 class SynchronizedCache(private val maxEntries: Int = 0) {
   private val rwLock = new ReentrantReadWriteLock
@@ -27,31 +27,31 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
   private var numGets = 0L
 
   private val onEvicted = (key: String, value: ByteView) => {
-    rwLock.writeLock.lock
+    rwLock.writeLock.lock()
     try {
       numBytes -= (key.getBytes.length + value.length).toLong
       numEvictions += 1
     }
     finally {
-      rwLock.writeLock.unlock
+      rwLock.writeLock.unlock()
     }
   }
 
   private val lru = new Cache[String, ByteView](maxEntries, Some(onEvicted))
 
   def add(key: String, value: ByteView): Unit = {
-    rwLock.writeLock.lock
+    rwLock.writeLock.lock()
     try {
       lru.add(key, value)
       numBytes += (key.getBytes.length + value.length).toLong
     }
     finally {
-      rwLock.writeLock.unlock
+      rwLock.writeLock.unlock()
     }
   }
 
   def get(key: String): Option[ByteView] = {
-    rwLock.writeLock.lock
+    rwLock.writeLock.lock()
     try {
       numGets += 1
       val value = lru.get(key)
@@ -63,42 +63,42 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
       value
     }
     finally {
-      rwLock.writeLock.unlock
+      rwLock.writeLock.unlock()
     }
   }
 
   def removeOldest: Unit = {
-    rwLock.writeLock.lock
+    rwLock.writeLock.lock()
     try {
       lru.removeOldest
     }
     finally {
-      rwLock.writeLock.unlock
+      rwLock.writeLock.unlock()
     }
   }
 
   def byteCount: Long = {
-    rwLock.readLock.lock
+    rwLock.readLock.lock()
     try {
       numBytes
     }
     finally {
-      rwLock.readLock.unlock
+      rwLock.readLock.unlock()
     }
   }
 
   def itemCount: Long = {
-    rwLock.readLock.lock
+    rwLock.readLock.lock()
     try {
       lru.itemCount
     }
     finally {
-      rwLock.readLock.unlock
+      rwLock.readLock.unlock()
     }
   }
 
   def stats: CacheStats = {
-    rwLock.readLock.lock
+    rwLock.readLock.lock()
     try {
       new CacheStats(
         bytes = numBytes,
@@ -109,7 +109,7 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
       )
     }
     finally {
-      rwLock.readLock.unlock
+      rwLock.readLock.unlock()
     }
   }
 }

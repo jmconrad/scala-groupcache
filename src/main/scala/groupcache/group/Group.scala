@@ -14,21 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache
+package groupcache.group
 
 import groupcachepb.GetRequest
-import groupcache.lru.SynchronizedCache
-import peers.{Peer, NoPeerPicker, PeerPicker}
 import groupcache.sinks.Sink
-import singleflight.SingleFlight
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 import scala.util.Random
 import com.google.protobuf.ByteString
+import groupcache.peers.{Peer, PeerPicker}
+import groupcache.lru.{CacheStats, SynchronizedCache}
+import groupcache.singleflight.SingleFlight
+import scala.Some
+import groupcache.util.ByteView
 
 class Group(val name: String,
             private val blockingGetter: (Option[Any], String, Sink) => Unit,
-            private val peers: PeerPicker,
+            private val peerPicker: PeerPicker,
             private val maxCacheBytes: Long, // Limit for sum of mainCache and hotCache size
             private val maxEntries: Int = 0) {
 
@@ -36,14 +38,6 @@ class Group(val name: String,
   private val hotCache = new SynchronizedCache(maxEntries)
   private val stats = new GroupStats
   private val loadGroup = new SingleFlight[String, ByteView]
-
-  def getPeerPicker(peerPickerFn: () => Option[PeerPicker] = () => None): PeerPicker = {
-    val picker = peerPickerFn()
-    picker match {
-      case Some(p: PeerPicker) => p
-      case _ => NoPeerPicker
-    }
-  }
 
   def get(context: Option[Any], key: String, dest: Sink): Future[ByteView] = {
     stats.gets.incrementAndGet()
@@ -68,6 +62,12 @@ class Group(val name: String,
     })
   }
 
+  import CacheType._
+  def cacheStats(cacheType: CacheType): CacheStats = cacheType match {
+    case HotCache => this.hotCache.stats
+    case _ => this.mainCache.stats
+  }
+
   private class LoadResult(val value: ByteView, val destPopulated: Boolean)
 
   private def load(context: Option[Any], key: String, dest: Sink): Future[LoadResult] = {
@@ -77,7 +77,7 @@ class Group(val name: String,
     val result = loadGroup.execute(key, () => {
       this.stats.loadsDeduped.incrementAndGet
 
-      peers.pickPeer(key) match {
+      peerPicker.pickPeer(key) match {
         case None => {
           val localFuture = getLocally(context, key, dest)
           localFuture onFailure {

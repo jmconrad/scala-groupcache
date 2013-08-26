@@ -14,19 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache
+package groupcache.group
 
-import java.util.concurrent.atomic.AtomicInteger
-
-class GroupStats {
-  val gets = new AtomicInteger(0)
-  val cacheHits = new AtomicInteger(0)
-  val peerLoads = new AtomicInteger(0)
-  val peerErrors = new AtomicInteger(0)
-  val loads = new AtomicInteger(0)
-  val loadsDeduped = new AtomicInteger(0)
-  val localLoads = new AtomicInteger(0)
-  val localLoadErrs = new AtomicInteger(0)
-  val serverRequests = new AtomicInteger(0)
+trait GroupRegister {
+  def getGroup(name: String): Option[Group]
 }
 

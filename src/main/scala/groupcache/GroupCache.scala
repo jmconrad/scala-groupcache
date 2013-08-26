@@ -17,41 +17,45 @@ limitations under the License.
 package groupcache
 
 import collection.mutable.Map
+import group.{GroupRegister, Group}
 import sinks.Sink
 import peers.PeerPicker
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
-object GroupCache {
+class GroupCacheException(msg: String) extends Exception(msg)
+
+object GroupCache extends GroupRegister {
   type Getter = (Any, String, Sink) => Unit
 
   private val rwLock = new ReentrantReadWriteLock
   private val groups = Map[String, Group]()
 
-  def getGroup(name: String): Option[Group] = {
-    rwLock.readLock.lock
+  override def getGroup(name: String): Option[Group] = {
+    rwLock.readLock.lock()
     try {
       groups.get(name)
     }
     finally {
-      rwLock.readLock.unlock
+      rwLock.readLock.unlock()
     }
   }
 
-  def addGroup(name: String, cacheBytes: Long, getter: Getter, peers: PeerPicker): Group = {
-    rwLock.writeLock.lock
+  def addGroup(name: String, maxCacheBytes: Long, getter: Getter, peerPicker: PeerPicker): Group = {
+    rwLock.writeLock.lock()
     try {
       if (groups.contains(name)) {
-        // TODO: throw a better type of exception.
-        throw new Exception("A group with this name already exists.")
+        throw new GroupCacheException(s"A group with name $name already exists")
       }
 
-      val group = new Group(name, getter, peers, 0, 0)
+      val group = new Group(name, getter, peerPicker, maxCacheBytes)
       groups += name -> group
       group
     }
     finally {
-      rwLock.writeLock.unlock
+      rwLock.writeLock.unlock()
     }
   }
+
+  // TODO: Add methods for registering hooks...
 }
 

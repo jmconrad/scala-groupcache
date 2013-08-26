@@ -16,8 +16,8 @@ limitations under the License.
 
 package groupcache.sinks
 
-import groupcache.ByteView
 import com.google.protobuf.MessageLite
+import groupcache.util.ByteView
 
 class StringSink(private val dst: StringBuilder) extends Sink {
   private[groupcache] val view = ByteView(dst.mkString)

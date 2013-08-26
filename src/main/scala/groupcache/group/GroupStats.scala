@@ -14,26 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache.sinks
+package groupcache.group
 
-import com.google.protobuf.MessageLite
-import groupcache.util.ByteView
+import java.util.concurrent.atomic.AtomicInteger
 
-class ByteViewSink(private val dst: ByteView) extends Sink {
-  def setString(str: String): Unit = {
-    dst.value = Right(str)
-  }
-
-  def setBytes(bytes: Array[Byte]): Unit = {
-    dst.value = Left(bytes.clone())
-  }
-
-  def setProto(msg: MessageLite): Unit = {
-    dst.value = Left(msg.toByteArray)
-  }
-
-  private[groupcache] def view: ByteView = {
-    dst
-  }
+class GroupStats {
+  val gets = new AtomicInteger(0)
+  val cacheHits = new AtomicInteger(0)
+  val peerLoads = new AtomicInteger(0)
+  val peerErrors = new AtomicInteger(0)
+  val loads = new AtomicInteger(0)
+  val loadsDeduped = new AtomicInteger(0)
+  val localLoads = new AtomicInteger(0)
+  val localLoadErrs = new AtomicInteger(0)
+  val serverRequests = new AtomicInteger(0)
 }
 

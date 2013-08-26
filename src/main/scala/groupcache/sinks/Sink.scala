@@ -17,7 +17,7 @@ limitations under the License.
 package groupcache.sinks
 
 import com.google.protobuf.MessageLite
-import groupcache.ByteView
+import groupcache.util.ByteView
 
 trait Sink {
   def setString(str: String): Unit
