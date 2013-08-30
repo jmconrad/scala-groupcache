@@ -28,7 +28,8 @@ import groupcache.singleflight.SingleFlight
 import scala.Some
 import groupcache.util.ByteView
 
-class Group(val name: String,
+class Group private[groupcache](
+                    val name: String,
             private val blockingGetter: (Option[Any], String, Sink) => Unit,
             private val peerPicker: PeerPicker,
             private val maxCacheBytes: Long, // Limit for sum of mainCache and hotCache size
@@ -39,7 +40,7 @@ class Group(val name: String,
   private val stats = new GroupStats
   private val loadGroup = new SingleFlight[String, ByteView]
 
-  def get(context: Option[Any], key: String, dest: Sink): Future[ByteView] = {
+  def get(key: String, dest: Sink, context: Option[Any] = None): Future[ByteView] = {
     stats.gets.incrementAndGet()
     val value = lookupCache(key)
     val promise = Promise[ByteView]()
@@ -130,7 +131,7 @@ class Group(val name: String,
 
   private def getFromPeer(context: Option[Any], peer: Peer, key: String): Future[ByteView] = {
     val request = new GetRequest(this.name, key)
-    val f = peer.get(context, request)
+    val f = peer.get(request, context)
 
     f.map(response => {
       val byteView = response.`value` match {

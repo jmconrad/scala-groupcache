@@ -16,10 +16,21 @@ limitations under the License.
 
 package groupcache.peers
 
-import groupcachepb.{GetRequest, GetResponse}
 import concurrent.Future
+import groupcachepb.{GetRequest, GetResponse}
 
+/**
+ * A peer is a part of a group of other peers that can receive asynchronous
+ * requests for protobuf-encoded cached values.  A peer can participate
+ * in multiple groups
+ */
 trait Peer {
-  def get(context: Option[Any], in: GetRequest): Future[GetResponse]
+  /**
+   * Asynchronously gets a cached value from this peer
+   * @param request protobuf-encoded request containing group name and key
+   * @param context optional context data
+   * @return a future protobuf-encoded response
+   */
+  def get(request: GetRequest, context: Option[Any] = None): Future[GetResponse]
 }
 

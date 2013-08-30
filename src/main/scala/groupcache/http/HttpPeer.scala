@@ -16,46 +16,51 @@ limitations under the License.
 
 package groupcache.http
 
-import groupcachepb.{GetResponse, GetRequest}
-import java.net._
-import com.twitter.finagle.builder.{ServerBuilder, ClientBuilder}
-import com.twitter.finagle.http.Http
 import org.jboss.netty.handler.codec.http._
 import org.jboss.netty.handler.codec.http.HttpResponseStatus.{OK, BAD_REQUEST, NOT_FOUND}
 import org.jboss.netty.util.CharsetUtil.UTF_8
-import groupcache.peers.{PeerPicker, Peer}
-import java.util.zip.CRC32
-import java.util.concurrent.locks.ReentrantLock
+import org.jboss.netty.buffer.ChannelBuffers.copiedBuffer
+import groupcachepb.{GetResponse, GetRequest}
+import groupcache.peers.Peer
 import groupcache.group.GroupRegister
+import groupcache.sinks.AllocatingByteSliceSink
+import java.net._
+import com.twitter.finagle.builder.{ServerBuilder, ClientBuilder}
+import com.twitter.finagle.http.Http
 import com.twitter.finagle.Service
 import com.twitter.util.{Future => FinagleFuture, Promise => FinaglePromise}
 import HttpMethod.GET
 import HttpVersion.HTTP_1_1
 import scala.Some
-import groupcache.sinks.AllocatingByteSliceSink
 import collection.mutable.ArrayBuffer
 import util.{Failure, Success}
 import com.google.protobuf.ByteString
-import org.jboss.netty.buffer.ChannelBuffers.copiedBuffer
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 
-class HttpPeerException(msg: String) extends Exception(msg)
+class HttpPeerException(msg: String, cause: Throwable = null) extends Exception(msg, cause)
 
-class HttpPeer(private val baseUrl: URL,
-               private val basePath: String = "/_groupcache",
-               private var peerUrls: Array[URL],
-               private val groupRegister: GroupRegister) extends Peer with PeerPicker {
+/**
+ * Peer that acts as a client and optionally a server for fetching and providing cached values over HTTP
+ * @param baseUrl Base URL of this peer
+ */
+class HttpPeer(private val baseUrl: URL) extends Peer {
 
-  private val lock = new ReentrantLock()
   private val host = baseUrl.getHost()
+  private val basePath: String = "/_groupcache"
 
   private val port = baseUrl.getPort() match {
     case p if p < 0 => 80
     case p => p
   }
 
-  override def get(context: Option[Any] = None, request: GetRequest): Future[GetResponse] = {
+  /**
+   * Asynchronously gets a cached value from this peer over HTTP
+   * @param request protobuf-encoded request containing group name and key
+   * @param context optional context data
+   * @return a future protobuf-encoded response served over HTTP
+   */
+  override def get(request: GetRequest, context: Option[Any] = None): Future[GetResponse] = {
     val group = URLEncoder.encode(request.`group`, "UTF-8")
     val key = URLEncoder.encode(request.`key`, "UTF-8")
     val path = s"$basePath/$group/$key"
@@ -96,46 +101,35 @@ class HttpPeer(private val baseUrl: URL,
     promise.future
   }
 
-  override def pickPeer(key: String): Option[Peer] = {
-    val sum = checksum(key)
-    var pickedPeer: Option[Peer] = None
+  /**
+   * Serves protobuf-encoded cache values over HTTP.  Valid requests contain a URL
+   * path of the form /_groupcache/{groupName}/{key}
+   *
+   *
+   * @param groupRegister Allows a group to be located by name
+   */
+  def serveHttp(implicit groupRegister: GroupRegister): Unit = {
+    val service = getHttpService(groupRegister)
 
-    lock.lock()
     try {
-      if (this.peerUrls.length > 0) {
-        this.peerUrls(sum % this.peerUrls.length) match {
-          case peerBaseUrl if peerBaseUrl != baseUrl => {
-            pickedPeer = Some(new HttpPeer(peerBaseUrl, this.basePath, this.peerUrls, this.groupRegister))
-          }
-        }
+      ServerBuilder().codec(Http())
+        .bindTo(new InetSocketAddress(this.port))
+        .name("GroupCacheHttpServer")
+        .build(service)
+    }
+    catch {
+      case t: Throwable => {
+        val msg = t.getMessage()
+        throw new HttpPeerException(s"Error starting peer HTTP server: $msg", t)
       }
     }
-    finally {
-      lock.unlock()
-    }
-
-    pickedPeer
   }
 
-  def setPeerUrls(peerUrls: Array[URL]): Unit = {
-    lock.lock()
-    try {
-      this.peerUrls = peerUrls
-    }
-    finally {
-      lock.unlock()
-    }
-  }
-
-  private def checksum(key: String): Int = {
-    val crc = new CRC32
-    val bytes = key.getBytes
-    crc.update(bytes, 0, bytes.length)
-    crc.getValue.toInt
-  }
-
-  def serveHttp: Unit = {
-    val service = new Service[HttpRequest, HttpResponse] {
+  /**
+   * Constructs a basic Finagle service for serving cache entries over HTTP
+   */
+  private def getHttpService(groupRegister: GroupRegister): Service[HttpRequest, HttpResponse]  = {
+    new Service[HttpRequest, HttpResponse] {
       def apply(request: HttpRequest): FinagleFuture[HttpResponse] = {
         val uri = new URI(request.getUri)
         val path = uri.getPath
@@ -146,15 +140,15 @@ class HttpPeer(private val baseUrl: URL,
           return FinagleFuture(unknownPathResponse)
         }
 
-        val parts = path.split('/')
-        if (parts.length != 2) {
+        val parts = path.split("/")
+        if (parts.length != 4) {
           val invalidPathResponse = new DefaultHttpResponse(HTTP_1_1, BAD_REQUEST)
           invalidPathResponse.setContent(copiedBuffer(s"Invalid path: $path", UTF_8))
           return FinagleFuture(invalidPathResponse)
         }
 
-        val groupName = URLDecoder.decode(parts(0), "UTF-8")
-        val key = URLDecoder.decode(parts(1), "UTF-8")
+        val groupName = URLDecoder.decode(parts(2), "UTF-8")
+        val key = URLDecoder.decode(parts(3), "UTF-8")
         val groupOption = groupRegister.getGroup(groupName)
 
         if (!groupOption.isDefined) {
@@ -166,13 +160,14 @@ class HttpPeer(private val baseUrl: URL,
         val group = groupOption.get
         val buffer = new ArrayBuffer[Byte]()
         val futureResponse = new FinaglePromise[HttpResponse]()
-        val futureValue = group.get(None, key, new AllocatingByteSliceSink(buffer))
+        val futureValue = group.get(key, new AllocatingByteSliceSink(buffer))
 
         futureValue onComplete {
           case Success(byteView) => {
             try {
               val getResponse = new GetResponse(Some(ByteString.copyFrom(buffer.toArray)))
               val successResponse = new DefaultHttpResponse(HTTP_1_1, OK)
+              successResponse.setHeader("Content-Type", "application/x-protobuf")
               successResponse.setContent(copiedBuffer(getResponse.toByteArray))
               futureResponse.setValue(successResponse)
             }
@@ -186,11 +181,6 @@ class HttpPeer(private val baseUrl: URL,
         futureResponse
       }
     }
-
-    ServerBuilder().codec(Http())
-                   .bindTo(new InetSocketAddress(this.port))
-                   .name("GroupCacheHttpServer")
-                   .build(service)
   }
 }
 
