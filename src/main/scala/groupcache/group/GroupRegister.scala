@@ -16,7 +16,13 @@ limitations under the License.
 
 package groupcache.group
 
+/**
+ * Tracks groups that are currently participating in groupcache.
+ */
 trait GroupRegister {
+  /**
+   * Optionally gets the group with the given name.
+   */
   def getGroup(name: String): Option[Group]
 }
 

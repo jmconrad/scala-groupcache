@@ -16,6 +16,15 @@ limitations under the License.
 
 package groupcache.lru
 
+/**
+ * Tracks stats of LRU cache usage.
+ * @param bytes Total bytes of all keys and values.
+ * @param items Number of key/value entries in the cache.
+ * @param gets Number of gets that have been attempted.
+ * @param hits Number of gets that have resulted in a cache hit.
+ * @param evictions Number of entries that have been evicted
+ *                  from the cache for any reason.
+ */
 class CacheStats(val bytes: Long,
                  val items: Long,
                  val gets: Long,

@@ -21,10 +21,28 @@ import java.util.concurrent.locks.{ReentrantLock}
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 
+/**
+ * Ensures that once a non-blocking function is invoked using a given key,
+ * that function will not be invoked another time until the
+ * response from the first invocation is received.  If attempts are made
+ * to execute the function while a request is enroute, a pending Future
+ * object will be handed to the requester, which can be used to determine
+ * when the value has become available.
+ * @tparam Key
+ * @tparam Value
+ */
 class SingleFlight[Key, Value] {
   private val lock = new ReentrantLock
   private val map = Map[Key, Future[Value]]()
 
+  /**
+   * Executes the given non-blocking function if there are no pending
+   * requests using the given key.  Duplicate requests are returned
+   * a pending Future.
+   * @param key
+   * @param fn
+   * @return
+   */
   def execute(key: Key, fn: () => Future[Value]): Future[Value] = {
     lock.lock
     val value = map.get(key)

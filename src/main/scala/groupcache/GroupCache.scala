@@ -18,18 +18,27 @@ package groupcache
 
 import collection.mutable.Map
 import group.{GroupRegister, Group}
-import sinks.Sink
-import peers.PeerPicker
+import peers.{NoPeerPicker, PeerPicker}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.concurrent.Future
+import util.ByteView
 
 class GroupCacheException(msg: String) extends Exception(msg)
 
-class GroupCache private(private val peerPicker: PeerPicker,
+/**
+ * A group cache allows one or more groups of peers to participate in a
+ * distributed cache.
+ * @param peerPicker Determines which peer in the group owns a given key.
+ *                   If omitted, the current process will act as the only peer.
+ * @param serverStartHook Optional callback that is invoked when the first group is created.
+ * @param newGroupHook Optional callback that is invoked each time a group is created.
+ */
+class GroupCache private(private val peerPicker: PeerPicker = NoPeerPicker,
                          private val serverStartHook: Option[() => Unit] = None,
                          private val newGroupHook: Option[(Group) => Unit] = None) extends GroupRegister {
 
-  type Getter = (Any, String, Sink) => Unit
+  type Getter = (String, Option[Any]) => Future[ByteView]
 
   private val rwLock = new ReentrantReadWriteLock
   private val groups = Map[String, Group]()
@@ -41,6 +50,11 @@ class GroupCache private(private val peerPicker: PeerPicker,
     }
   }
 
+  /**
+   * Optionally gets the group with the given name.
+   * @param name
+   * @return
+   */
   override def getGroup(name: String): Option[Group] = {
     rwLock.readLock.lock()
     try {
@@ -51,6 +65,17 @@ class GroupCache private(private val peerPicker: PeerPicker,
     }
   }
 
+  /**
+   * Adds a new group to start participating in a distributed cache.
+   * @param name
+   * @param maxCacheBytes The maximum number of total bytes that can be held
+   *                      in both the main and hot caches of each peer of the group.
+   * @param getter The non-blocking callback that is invoked when the current
+   *               peer has been identified as the owner of a key, the corresponding
+   *               value has not been cached, and the value needs to be fetched by
+   *               the current peer (e.g., by retrieving the data from a database).
+   * @return
+   */
   def addGroup(name: String, maxCacheBytes: Long, getter: Getter): Group = {
     rwLock.writeLock.lock()
     try {
@@ -75,9 +100,20 @@ class GroupCache private(private val peerPicker: PeerPicker,
   }
 }
 
+/**
+ * Companion object that ensures that only a single instance of GroupCache is created,
+ * while allowing parameters to be passed to its constructor.
+ */
 object GroupCache {
   private val instanceCreated = new AtomicBoolean(false)
 
+  /**
+   * Constructs an instance of GroupCache if one does not already exist.
+   * @param peerPicker
+   * @param serverStartHook
+   * @param newGroupHook
+   * @return
+   */
   def apply(peerPicker: PeerPicker,
             serverStartHook: Option[() => Unit] = None,
             newGroupHook: Option[(Group) => Unit] = None): GroupCache = {

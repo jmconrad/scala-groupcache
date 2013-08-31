@@ -16,7 +16,16 @@ limitations under the License.
 
 package groupcache.peers
 
+/**
+ * A peer picker maintains a set of peers that are part of a group
+ * and determines which of those peers is the owner of a given key.
+ * Returns None if the current peer is the owner of the key.
+ */
 trait PeerPicker {
+  /**
+   * Optionally picks a peer as the owner of the given key.  Returns
+   * None if the current peer is the owner of the key.
+   */
   def pickPeer(key: String) : Option[Peer]
 }
 

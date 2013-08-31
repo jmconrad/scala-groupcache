@@ -16,7 +16,14 @@ limitations under the License.
 
 package groupcache.peers
 
+/**
+ * A peer picker for scenarios where this will only ever be a single peer.
+ */
 object NoPeerPicker extends PeerPicker {
+  /**
+   * Returns None, signifying that the current peer (process) is the
+   * owner of the key.
+   */
   def pickPeer(key: String): Option[Peer] = None
 }
 

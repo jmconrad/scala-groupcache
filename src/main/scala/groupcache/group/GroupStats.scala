@@ -18,15 +18,50 @@ package groupcache.group
 
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Tracks status of cache usage over a group.
+ */
 class GroupStats {
+  /**
+   * Number of gets that have been attempted, including attempts from peers.
+   */
   val gets = new AtomicInteger(0)
+
+  /**
+   * Number of gets that have resulted in a cache hit.
+   */
   val cacheHits = new AtomicInteger(0)
+
+  /**
+   * Number of remote loads or cache hits performed in the current process.
+   */
   val peerLoads = new AtomicInteger(0)
+
+  /**
+   * Number of errors encountered when attempting to get a value from a peer.
+   */
   val peerErrors = new AtomicInteger(0)
+
+  /**
+   * Number of gets that did not result in a cache hit.
+   */
   val loads = new AtomicInteger(0)
+
+  /**
+   * Number of peer loads that resulted in an actual remote call.
+   * Peer loads will be 'deduped' when concurrent requests for
+   * the same key are made.
+   */
   val loadsDeduped = new AtomicInteger(0)
+
+  /**
+   * Number of successful loads that were performed locally.
+   */
   val localLoads = new AtomicInteger(0)
-  val localLoadErrs = new AtomicInteger(0)
-  val serverRequests = new AtomicInteger(0)
+
+  /**
+   * Number of unsuccessful loads that were performed locally.
+   */
+  val localLoadErrors = new AtomicInteger(0)
 }
 

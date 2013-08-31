@@ -62,7 +62,7 @@ class Cache[Key, Value](private val maxEntries: Int = 0,
   def += (key: Key, value: Value): Unit = add(key, value)
 
   /**
-   * Optionally gets key's value from the cache.
+   * Optionally gets the key's value from the cache.
    * @param key
    * @return
    */

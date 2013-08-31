@@ -19,13 +19,22 @@ package groupcache.lru
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import groupcache.util.ByteView
 
+/**
+ * Simple LRU cache that is safe for concurrent access and that
+ * provides usage statistics.
+ * @param maxEntries The maximum number of cache entries before an item is evicted.
+ *                   Zero means no limit.
+ */
 class SynchronizedCache(private val maxEntries: Int = 0) {
   private val rwLock = new ReentrantReadWriteLock
-  private var numBytes = 0L // Total bytes of all keys and values
   private var numEvictions = 0L
   private var numHits = 0L
   private var numGets = 0L
 
+  // Total bytes of all keys and values.
+  private var numBytes = 0L
+
+  // Callback that is invoked when an entry is evicted.
   private val onEvicted = (key: String, value: ByteView) => {
     rwLock.writeLock.lock()
     try {
@@ -37,8 +46,15 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  // Underlying thread-unsafe in-memory cache.
   private val lru = new Cache[String, ByteView](maxEntries, Some(onEvicted))
 
+  /**
+   * Adds a value to the cache.  If the key already exists, the entry's value
+   * is updated.
+   * @param key
+   * @param value
+   */
   def add(key: String, value: ByteView): Unit = {
     rwLock.writeLock.lock()
     try {
@@ -50,6 +66,19 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  /**
+   * Adds a value to the cache. If the key already exists, the entry's value
+   * is updated.
+   * @param key
+   * @param value
+   */
+  def += (key: String, value: ByteView): Unit = add(key, value)
+
+  /**
+   * Optionally gets the key's value from the cache.
+   * @param key
+   * @return
+   */
   def get(key: String): Option[ByteView] = {
     rwLock.writeLock.lock()
     try {
@@ -67,6 +96,9 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  /**
+   * Removes the oldest entry from the cache.  Does nothing if the cache is empty.
+   */
   def removeOldest: Unit = {
     rwLock.writeLock.lock()
     try {
@@ -77,6 +109,9 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  /**
+   * Gets the total number of bytes of all keys and values.
+   */
   def byteCount: Long = {
     rwLock.readLock.lock()
     try {
@@ -87,6 +122,9 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  /**
+   * Gets the number of entries currently held in the cache.
+   */
   def itemCount: Long = {
     rwLock.readLock.lock()
     try {
@@ -97,6 +135,9 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
   }
 
+  /**
+   * Gets usage statistics.
+   */
   def stats: CacheStats = {
     rwLock.readLock.lock()
     try {

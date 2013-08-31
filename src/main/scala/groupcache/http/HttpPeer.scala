@@ -17,13 +17,12 @@ limitations under the License.
 package groupcache.http
 
 import org.jboss.netty.handler.codec.http._
-import org.jboss.netty.handler.codec.http.HttpResponseStatus.{OK, BAD_REQUEST, NOT_FOUND}
+import org.jboss.netty.handler.codec.http.HttpResponseStatus.{OK, BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR}
 import org.jboss.netty.util.CharsetUtil.UTF_8
 import org.jboss.netty.buffer.ChannelBuffers.copiedBuffer
 import groupcachepb.{GetResponse, GetRequest}
 import groupcache.peers.Peer
 import groupcache.group.GroupRegister
-import groupcache.sinks.AllocatingByteSliceSink
 import java.net._
 import com.twitter.finagle.builder.{ServerBuilder, ClientBuilder}
 import com.twitter.finagle.http.Http
@@ -32,7 +31,6 @@ import com.twitter.util.{Future => FinagleFuture, Promise => FinaglePromise}
 import HttpMethod.GET
 import HttpVersion.HTTP_1_1
 import scala.Some
-import collection.mutable.ArrayBuffer
 import util.{Failure, Success}
 import com.google.protobuf.ByteString
 import scala.concurrent._
@@ -41,13 +39,19 @@ import ExecutionContext.Implicits.global
 class HttpPeerException(msg: String, cause: Throwable = null) extends Exception(msg, cause)
 
 /**
- * Peer that acts as a client and optionally a server for fetching and providing cached values over HTTP
- * @param baseUrl Base URL of this peer
+ * Peer that acts as a client and optionally a server for fetching and providing cached values over HTTP.
+ *
+ * @param baseUrl Base URL of this peer.
+ * @param contextFn Optional callback that allows for a user to specify context for
+ *                  this peer (when acting as a server) when a request is received.
+ *                  The callback accepts an HttpRequest as a parameter and returns
+ *                  any optional value that this peer will treat as opaque.
  */
-class HttpPeer(private val baseUrl: URL) extends Peer {
+class HttpPeer(private val baseUrl: URL,
+               private val contextFn: Option[(HttpRequest) => Option[Any]] = None) extends Peer {
 
-  private val host = baseUrl.getHost()
   private val basePath: String = "/_groupcache"
+  private val host = baseUrl.getHost()
 
   private val port = baseUrl.getPort() match {
     case p if p < 0 => 80
@@ -55,10 +59,20 @@ class HttpPeer(private val baseUrl: URL) extends Peer {
   }
 
   /**
-   * Asynchronously gets a cached value from this peer over HTTP
-   * @param request protobuf-encoded request containing group name and key
-   * @param context optional context data
-   * @return a future protobuf-encoded response served over HTTP
+   * Constructs an HTTP peer using the given port.  This constructor should only
+   * be used when this peer corresponds to localhost.
+   * @param localPort
+   * @param localContextFn
+   */
+  def this(localPort: Int, localContextFn: Option[(HttpRequest) => Option[Any]]) {
+    this(new URL(s"http://localhost:$localPort"), localContextFn)
+  }
+
+  /**
+   * Asynchronously gets a cached value from this peer over HTTP.
+   * @param request Protobuf-encoded request containing group name and key.
+   * @param context Optional, opaque context data
+   * @return A future protobuf-encoded response served over HTTP.
    */
   override def get(request: GetRequest, context: Option[Any] = None): Future[GetResponse] = {
     val group = URLEncoder.encode(request.`group`, "UTF-8")
@@ -105,8 +119,7 @@ class HttpPeer(private val baseUrl: URL) extends Peer {
    * Serves protobuf-encoded cache values over HTTP.  Valid requests contain a URL
    * path of the form /_groupcache/{groupName}/{key}
    *
-   *
-   * @param groupRegister Allows a group to be located by name
+   * @param groupRegister Allows a group to be located by name.
    */
   def serveHttp(implicit groupRegister: GroupRegister): Unit = {
     val service = getHttpService(groupRegister)
@@ -126,7 +139,7 @@ class HttpPeer(private val baseUrl: URL) extends Peer {
   }
 
   /**
-   * Constructs a basic Finagle service for serving cache entries over HTTP
+   * Constructs a basic Finagle service for serving cache entries over HTTP.
    */
   private def getHttpService(groupRegister: GroupRegister): Service[HttpRequest, HttpResponse]  = {
     new Service[HttpRequest, HttpResponse] {
@@ -158,24 +171,42 @@ class HttpPeer(private val baseUrl: URL) extends Peer {
         }
 
         val group = groupOption.get
-        val buffer = new ArrayBuffer[Byte]()
         val futureResponse = new FinaglePromise[HttpResponse]()
-        val futureValue = group.get(key, new AllocatingByteSliceSink(buffer))
+        val context: Option[Any] = contextFn match {
+          case Some(fn) => {
+            try {
+              fn(request)
+            }
+            catch {
+              case t: Throwable => None
+            }
+          }
+          case _ => None
+        }
+
+        val futureValue = group.get(key, context)
+
+        def sendInternalError(t: Throwable): Unit = {
+          val errorResponse = new DefaultHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR)
+          val msg = t.getMessage
+          errorResponse.setContent(copiedBuffer(s"Internal server error: $msg", UTF_8))
+          futureResponse.setValue(errorResponse)
+        }
 
         futureValue onComplete {
           case Success(byteView) => {
             try {
-              val getResponse = new GetResponse(Some(ByteString.copyFrom(buffer.toArray)))
+              val getResponse = new GetResponse(Some(ByteString.copyFrom(byteView.byteSlice)))
               val successResponse = new DefaultHttpResponse(HTTP_1_1, OK)
               successResponse.setHeader("Content-Type", "application/x-protobuf")
               successResponse.setContent(copiedBuffer(getResponse.toByteArray))
               futureResponse.setValue(successResponse)
             }
             catch {
-              case t: Throwable => futureResponse.setException(t)
+              case t: Throwable => sendInternalError(t)
             }
           }
-          case Failure(t) => futureResponse.setException(t)
+          case Failure(t) => sendInternalError(t)
         }
 
         futureResponse

@@ -17,7 +17,6 @@ limitations under the License.
 package groupcache.group
 
 import groupcachepb.GetRequest
-import groupcache.sinks.Sink
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 import scala.util.Random
@@ -28,74 +27,107 @@ import groupcache.singleflight.SingleFlight
 import scala.Some
 import groupcache.util.ByteView
 
+/**
+ * A group is a set of peers participating in a distributed cache.  Values
+ * that are fetched from a group may be fetched locally (in process), or
+ * may instead be fetched from a peer.
+ *
+ * A group holds two types of caches; a Main cache, which contains keys/values
+ * for which the current peer (process) is the owner; and a Hot cache, which
+ * contains keys/values for which the current peer (process) is not the owner,
+ * but for which the keys are accessed frequently enough that the data needs
+ * to be mirrored in this peer's cache.
+ *
+ * @param name The name of this group.
+ * @param getter The non-blocking callback that is invoked when the current
+ *               peer has been identified as the owner of a key, the corresponding
+ *               value has not been cached, and the value needs to be fetched by
+ *               the current peer (e.g., by retrieving the data from a database).
+ * @param peerPicker Determines which peer in the group owns a given key.
+ * @param maxCacheBytes  The maximum number of total bytes that can be held
+ *                       in both the main and hot caches of each peer of the group.
+ * @param maxEntries The maximum number of cache entries that can be held by
+ *                   each type of cache.  Zero means no limit.
+ */
 class Group private[groupcache](
                     val name: String,
-            private val blockingGetter: (Option[Any], String, Sink) => Unit,
+            private val getter: (String, Option[Any]) => Future[ByteView],
             private val peerPicker: PeerPicker,
-            private val maxCacheBytes: Long, // Limit for sum of mainCache and hotCache size
+            private val maxCacheBytes: Long,
             private val maxEntries: Int = 0) {
 
   private val mainCache = new SynchronizedCache(maxEntries)
   private val hotCache = new SynchronizedCache(maxEntries)
   private val stats = new GroupStats
+
+  // Ensures that a key's value is not loaded multiple times due to
+  // a rush of concurrent calls to fetch a particular key.
   private val loadGroup = new SingleFlight[String, ByteView]
 
-  def get(key: String, dest: Sink, context: Option[Any] = None): Future[ByteView] = {
-    stats.gets.incrementAndGet()
-    val value = lookupCache(key)
+  /**
+   * Gets the value with the given key.  If the current peer is the owner of the key,
+   * the value will be fetched locally.  Otherwise, the value will be fetched from
+   * a peer.  If the key's value is not already loaded in the cache, this group's
+   * non-blocking getter will be invoked to load it.
+   * @param key
+   * @param context Optional, opaque context data that will be passed to the
+   *                non-blocking getter when invoked.
+   * @return The Future value of the cache entry in the form of a byte view.
+   */
+  def get(key: String, context: Option[Any] = None): Future[ByteView] = {
+    this.stats.gets.incrementAndGet()
     val promise = Promise[ByteView]()
 
-    if (value.isDefined) {
-      stats.cacheHits.incrementAndGet()
-      setSinkView(dest, value.get)
-      promise.success(value.get)
-      return promise.future
-    }
-
-    val f = load(context, key, dest)
-
-    f.map(result => {
-      if (!result.destPopulated) {
-        setSinkView(dest, result.value)
+    lookupCache(key) match {
+      case Some(byteView: ByteView) => {
+        this.stats.cacheHits.incrementAndGet()
+        promise.success(byteView)
+        promise.future
       }
-
-      result.value
-    })
+      case _ => load(key, context)
+    }
   }
 
   import CacheType._
+
+  /**
+   * Gets cache usage statistics aggregated across this group.
+   * @param cacheType The type of cache of which to request statistics.
+   */
   def cacheStats(cacheType: CacheType): CacheStats = cacheType match {
     case HotCache => this.hotCache.stats
     case _ => this.mainCache.stats
   }
 
-  private class LoadResult(val value: ByteView, val destPopulated: Boolean)
-
-  private def load(context: Option[Any], key: String, dest: Sink): Future[LoadResult] = {
+  /**
+   * Loads/fills the cache with a value using the given key.
+   * @param key
+   * @param context Optional, opaque context data that will be passed to
+   *                the non-blocking getter if the value is loaded locally.
+   * @return The Future value of the cache entry in the form of a byte view.
+   */
+  private def load(key: String, context: Option[Any]): Future[ByteView] = {
     this.stats.loads.incrementAndGet()
-    var destPopulated = false
 
     val result = loadGroup.execute(key, () => {
       this.stats.loadsDeduped.incrementAndGet
 
       peerPicker.pickPeer(key) match {
         case None => {
-          val localFuture = getLocally(context, key, dest)
+          val localFuture = loadLocally(key, context)
           localFuture onFailure {
-            case _ => this.stats.localLoadErrs.incrementAndGet()
+            case _ => this.stats.localLoadErrors.incrementAndGet()
           }
 
           localFuture.map(localVal => {
             this.stats.localLoads.incrementAndGet
-             // Only one caller of load() gets this value.
-            destPopulated = true
             this.populateCache(key, localVal, this.mainCache)
             localVal
           })
         }
 
         case Some(p: Peer) => {
-          val peerFuture = getFromPeer(context, p, key)
+          val peerFuture = getFromPeer(p, key, context)
           peerFuture onFailure {
             case _ => this.stats.peerErrors.incrementAndGet()
           }
@@ -108,9 +140,15 @@ class Group private[groupcache](
       }
     })
 
-    result.map(byteView => new LoadResult(byteView, destPopulated))
+    result
   }
 
+  /**
+   * Attempts to find the key's value in both the main and hot caches.
+   * Returns None if not found in either.
+   * @param key
+   * @return
+   */
   private def lookupCache(key: String): Option[ByteView] = {
     if (this.maxCacheBytes <= 0) {
       return None
@@ -122,14 +160,27 @@ class Group private[groupcache](
     }
   }
 
-  private def getLocally(context: Option[Any], key: String, dest: Sink): Future[ByteView] = {
-    future {
-      this.blockingGetter(context, key, dest)
-      dest.view
-    }
+  /**
+   * Loads the value of the given key locally in this process.  This
+   * should only be invoked once it is determined that the current peer
+   * is the owner of the key.
+   * @param key
+   * @param context Optional, opaque context data that is passed to
+   *                the non-blocking getter.
+   * @return The Future value of the cache entry in the form of a byte view.
+   */
+  private def loadLocally(key: String, context: Option[Any]): Future[ByteView] = {
+    this.getter(key, context)
   }
 
-  private def getFromPeer(context: Option[Any], peer: Peer, key: String): Future[ByteView] = {
+  /**
+   * Gets or loads the value of the given key using the given peer.
+   * @param peer
+   * @param key
+   * @param context
+   * @return
+   */
+  private def getFromPeer(peer: Peer, key: String, context: Option[Any]): Future[ByteView] = {
     val request = new GetRequest(this.name, key)
     val f = peer.get(request, context)
 
@@ -150,6 +201,13 @@ class Group private[groupcache](
     })
   }
 
+  /**
+   * Adds a value to the given cache once it has been loaded either locally
+   * or from a peer.
+   * @param key
+   * @param value
+   * @param cache
+   */
   private def populateCache(key: String, value: ByteView, cache: SynchronizedCache): Unit = {
     if (this.maxCacheBytes <= 0) {
       return
@@ -172,11 +230,6 @@ class Group private[groupcache](
 
       victim.removeOldest
     }
-  }
-
-  private def setSinkView(sink: Sink, view: ByteView): Unit = view.value match {
-    case v if v.isLeft => sink.setBytes(v.left.get)
-    case v => sink.setString(v.right.get)
   }
 }
 

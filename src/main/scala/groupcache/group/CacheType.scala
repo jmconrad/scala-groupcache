@@ -16,8 +16,19 @@ limitations under the License.
 
 package groupcache.group
 
+/**
+ * Enum of types of caches that can be maintained by a group.
+ */
 object CacheType extends Enumeration {
   type CacheType = Value
-  val MainCache, HotCache = Value
+
+  // A main cache contains a cache of the keys/values for which the current peer
+  // (process) is the owner.
+  val MainCache,
+
+  // A hot cache contains a cache of the keys/values for which the current
+  // peer (process) is not the owner, but the keys are accessed frequently
+  // enough that the data is mirrored here.
+  HotCache = Value
 }
 
