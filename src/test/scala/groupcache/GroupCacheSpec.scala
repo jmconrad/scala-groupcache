@@ -72,7 +72,7 @@ class GroupCacheSpec extends WordSpec with ShouldMatchers {
       group should not equal (None)
     }
 
-    "give a value of None when an invalid is attempted to be retrieved" in {
+    "give a value of None when an invalid group is attempted to be retrieved" in {
       val group = groupCache.getGroup("doesn't exist")
       group should equal (None)
     }

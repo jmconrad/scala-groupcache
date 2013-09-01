@@ -90,7 +90,7 @@ class HttpPeer(private val baseUrl: URL,
 
         if (status != OK) {
           val code = status.getCode
-          val msg = s"Error getting response from HTTP peer.  Received HTTP code $code"
+          val msg = s"Error getting response from HTTP peer.  Received HTTP code: $code"
           promise.failure(new HttpPeerException(msg))
         }
         else {
@@ -109,7 +109,11 @@ class HttpPeer(private val baseUrl: URL,
     }
 
     responseFuture onFailure {
-      case t: Throwable => promise.failure(t)
+      case t: Throwable => {
+        val msg = t.getMessage
+        val exception = new HttpPeerException(s"Error communicating with HTTP peer.  Received error: $msg", t)
+        promise.failure(exception)
+      }
     }
 
     promise.future

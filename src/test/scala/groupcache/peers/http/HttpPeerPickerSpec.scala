@@ -23,31 +23,31 @@ import groupcache.Implicits._
 
 class HttpPeerPickerSpec extends WordSpec with ShouldMatchers {
   "An HTTP peer picker" should {
-    "Pick no peer when there are no peers to pick from" in {
+    "pick no peer when there are no peers to pick from" in {
       val picker = new HttpPeerPicker(80, Array[URL]())
       val peer = picker.pickPeer("key")
       peer should equal (None)
     }
 
-    "Pick no peer when the current peer is the only one participating" in {
+    "pick no peer when the current peer is the only one participating" in {
       val picker = new HttpPeerPicker(80, Array(new URL("http://localhost:80")))
       val peer = picker.pickPeer("key")
       peer should equal (None)
     }
 
-    "Pick a peer when there are multiple peers and a key is not owned by the current peer" in {
+    "pick a peer when there are multiple peers and a key is not owned by the current peer" in {
       val picker = new HttpPeerPicker(80, Array(new URL("http://localhost:80"), new URL("http://peer:80")))
       val peer = picker.pickPeer("key")
       peer should not equal (None)
     }
 
-    "Pick no peer when there are multiple peers and a key is owned by the current peer" in {
+    "pick no peer when there are multiple peers and a key is owned by the current peer" in {
       val picker = new HttpPeerPicker("http://localhost:80", Array(new URL(new URL("http://peer:80"), "http://localhost:80")))
       val peer = picker.pickPeer("key")
       peer should equal (None)
     }
 
-    "Allow its available peers to be updated" in {
+    "pllow its available peers to be updated" in {
       val picker = new HttpPeerPicker(80, Array[URL]())
       picker.setPeerUrls(Array(new URL("http://localhost:80"), new URL("http://peer:80")))
       val peer = picker.pickPeer("key")
