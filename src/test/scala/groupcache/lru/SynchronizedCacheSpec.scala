@@ -16,97 +16,102 @@ limitations under the License.
 
 package groupcache.lru
 
-import org.scalamock.scalatest.MockFactory
-import org.scalatest._
-import matchers.ShouldMatchers
+import org.scalatest.WordSpec
+import org.scalatest.matchers.ShouldMatchers
+import groupcache.ByteView
+import groupcache.Implicits._
 
-class CacheSpec extends WordSpec with ShouldMatchers with MockFactory {
-  "An LRU cache" should {
+class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
+  "A synchronized LRU cache" should {
     "get a value for a key that has just been added" in {
-      val cache = new Cache[String, String]
+      val cache = new SynchronizedCache
       cache.add("key", "value")
-      cache.get("key") should equal (Some("value"))
+      cache.get("key") should equal (Some(ByteView("value")))
     }
 
     "update a value when a key already exists" in {
-      val cache = new Cache[String, String]
+      val cache = new SynchronizedCache
       cache.add("key", "value")
       cache.add("key", "updatedValue")
-      cache.get("key") should equal (Some("updatedValue"))
+      cache.get("key") should equal (Some(ByteView("updatedValue")))
     }
 
     "not get a value for a non-existent key" in {
-      val cache = new Cache[String, String]
+      val cache = new SynchronizedCache
       cache.get("key") should equal (None)
     }
 
     "evict the oldest entry when being explicitly instructed to do so" in {
-      val cache = new Cache[String, String]
+      val cache = new SynchronizedCache
       cache.add("key", "value")
       cache.removeOldest
       cache.get("key") should equal (None)
     }
 
     "evict the oldest entry when breaching its max size" in {
-      val cache = new Cache[String, String](2)
+      val cache = new SynchronizedCache(2)
       cache.add("key1", "value1")
       cache.add("key2", "value2")
       cache.add("key3", "value3")
       cache.get("key1") should equal (None)
-      cache.get("key2") should equal (Some("value2"))
-      cache.get("key3") should equal (Some("value3"))
+      cache.get("key2") should equal (Some(ByteView("value2")))
+      cache.get("key3") should equal (Some(ByteView("value3")))
     }
 
     "not evict entries that have been recently accessed via get" in {
-      val cache = new Cache[String, String](2)
+      val cache = new SynchronizedCache(2)
       cache.add("key1", "value1")
       cache.add("key2", "value2")
       cache.get("key1")
       cache.add("key3", "value3")
-      cache.get("key1") should equal (Some("value1"))
+      cache.get("key1") should equal (Some(ByteView("value1")))
       cache.get("key2") should equal (None)
-      cache.get("key3") should equal (Some("value3"))
+      cache.get("key3") should equal (Some(ByteView("value3")))
     }
 
     "not evict entries that have been recently accessed via add" in {
-      val cache = new Cache[String, String](2)
+      val cache = new SynchronizedCache(2)
       cache.add("key1", "value1")
       cache.add("key2", "value2")
       cache.add("key1", "updatedValue")
       cache.add("key3", "value3")
-      cache.get("key1") should equal (Some("updatedValue"))
+      cache.get("key1") should equal (Some(ByteView("updatedValue")))
       cache.get("key2") should equal (None)
-      cache.get("key3") should equal (Some("value3"))
+      cache.get("key3") should equal (Some(ByteView("value3")))
     }
 
-    "allow an entry to be removed by key" in {
-      val cache = new Cache[String, String]
-      cache.add("key", "value")
-      cache.remove("key")
-      cache.get("key") should equal (None)
+    "track its byte count" in {
+      val cache = new SynchronizedCache
+      val key = "key"
+      val value = "value"
+      cache.add(key, value)
+      cache.stats.bytes should equal (key.getBytes.length + value.getBytes.length)
     }
 
-    "not invoke its onEvicted callback when no entry has been evicted" in {
-      val fn = mockFunction[String, String, Unit]
-      fn expects ("key", "value") never
-      val cache = new Cache[String, String](1, Some(fn))
-      cache.add("key", "value")
-    }
-
-    "invoke its onEvicted callback when an entry has been evicted" in {
-      val evictionFn = mockFunction[String, String, Unit]
-      evictionFn expects ("key1", "value1") once
-      val cache = new Cache[String, String](1, Some(evictionFn))
+    "track its item count" in {
+      val cache = new SynchronizedCache(2)
       cache.add("key1", "value1")
       cache.add("key2", "value2")
+      cache.add("key3", "value3")
+      cache.stats.items should equal (2)
     }
 
-    "remove an entry by its key" in {
-      val cache = new Cache[String, String]
+    "track its number of evictions" in {
+      val cache = new SynchronizedCache(1)
+      cache.add("key1", "value1")
+      cache.add("key2", "value2")
+      cache.add("key3", "value3")
+      cache.stats.evictions should equal (2)
+    }
+
+    "track its get and hit counts" in {
+      val cache = new SynchronizedCache
       cache.add("key", "value")
-      cache.remove("key")
-      cache -= "key"
-      cache.get("key") should equal (None)
+      cache.get("key")
+      cache.get("key")
+      cache.get("key2")
+      cache.stats.gets should equal (3)
+      cache.stats.hits should equal (2)
     }
   }
 }

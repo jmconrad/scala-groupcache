@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache.http
+package groupcache.peers.http
 
 import org.jboss.netty.handler.codec.http._
 import org.jboss.netty.handler.codec.http.HttpResponseStatus.{OK, BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR}
@@ -69,7 +69,7 @@ class HttpPeer(private val baseUrl: URL,
   }
 
   /**
-   * Asynchronously gets a cached value from this peer over HTTP.
+   * Asynchronously gets a cached value from a peer over HTTP.
    * @param request Protobuf-encoded request containing group name and key.
    * @param context Optional, opaque context data
    * @return A future protobuf-encoded response served over HTTP.
@@ -172,26 +172,31 @@ class HttpPeer(private val baseUrl: URL,
 
         val group = groupOption.get
         val futureResponse = new FinaglePromise[HttpResponse]()
-        val context: Option[Any] = contextFn match {
-          case Some(fn) => {
-            try {
-              fn(request)
-            }
-            catch {
-              case t: Throwable => None
-            }
-          }
-          case _ => None
-        }
-
-        val futureValue = group.get(key, context)
-
         def sendInternalError(t: Throwable): Unit = {
           val errorResponse = new DefaultHttpResponse(HTTP_1_1, INTERNAL_SERVER_ERROR)
           val msg = t.getMessage
           errorResponse.setContent(copiedBuffer(s"Internal server error: $msg", UTF_8))
           futureResponse.setValue(errorResponse)
         }
+
+        val context: Option[Any] = contextFn match {
+          case Some(fn) => {
+            try {
+              fn(request)
+            }
+            catch {
+              case t: Throwable => {
+                // The context callback is misbehaving.  Just send back a 500 without
+                // even attempting to get the cache value from the group.
+                sendInternalError(t)
+                return futureResponse
+              }
+            }
+          }
+          case _ => None
+        }
+
+        val futureValue = group.get(key, context)
 
         futureValue onComplete {
           case Success(byteView) => {

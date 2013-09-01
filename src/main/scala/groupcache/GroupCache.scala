@@ -22,7 +22,6 @@ import peers.{NoPeerPicker, PeerPicker}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.Future
-import util.ByteView
 
 class GroupCacheException(msg: String) extends Exception(msg)
 
@@ -82,7 +81,7 @@ class GroupCache private(private val peerPicker: PeerPicker = NoPeerPicker,
       runServerStartHook
 
       if (groups.contains(name)) {
-        throw new GroupCacheException(s"A group with name $name already exists")
+        throw new GroupCacheException(s"A group with name '$name' already exists")
       }
 
       val group = new Group(name, getter, this.peerPicker, maxCacheBytes)

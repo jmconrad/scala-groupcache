@@ -17,7 +17,7 @@ limitations under the License.
 package groupcache.lru
 
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import groupcache.util.ByteView
+import groupcache.ByteView
 
 /**
  * Simple LRU cache that is safe for concurrent access and that
@@ -106,32 +106,6 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     }
     finally {
       rwLock.writeLock.unlock()
-    }
-  }
-
-  /**
-   * Gets the total number of bytes of all keys and values.
-   */
-  def byteCount: Long = {
-    rwLock.readLock.lock()
-    try {
-      numBytes
-    }
-    finally {
-      rwLock.readLock.unlock()
-    }
-  }
-
-  /**
-   * Gets the number of entries currently held in the cache.
-   */
-  def itemCount: Long = {
-    rwLock.readLock.lock()
-    try {
-      lru.itemCount
-    }
-    finally {
-      rwLock.readLock.unlock()
     }
   }
 

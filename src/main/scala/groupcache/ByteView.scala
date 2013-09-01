@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package groupcache.util
+package groupcache
 
 /**
  * A ByteView holds an immutable view of bytes

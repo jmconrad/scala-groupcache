@@ -17,7 +17,7 @@ limitations under the License.
 package groupcache.peers
 
 /**
- * A peer picker for scenarios where this will only ever be a single peer.
+ * A peer picker for scenarios where there will only ever be a single peer.
  */
 object NoPeerPicker extends PeerPicker {
   /**

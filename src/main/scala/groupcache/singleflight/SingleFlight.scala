@@ -23,11 +23,11 @@ import ExecutionContext.Implicits.global
 
 /**
  * Ensures that once a non-blocking function is invoked using a given key,
- * that function will not be invoked another time until the
+ * that function will not be invoked another time with that key until the
  * response from the first invocation is received.  If attempts are made
  * to execute the function while a request is enroute, a pending Future
- * object will be handed to the requester, which can be used to determine
- * when the value has become available.
+ * object will be handed to the requester without ever invoking the function,
+ * which can be used to determine when the value has become available.
  * @tparam Key
  * @tparam Value
  */
@@ -38,31 +38,31 @@ class SingleFlight[Key, Value] {
   /**
    * Executes the given non-blocking function if there are no pending
    * requests using the given key.  Duplicate requests are returned
-   * a pending Future.
+   * a pending Future without the function being invoked.
    * @param key
    * @param fn
    * @return
    */
   def execute(key: Key, fn: () => Future[Value]): Future[Value] = {
-    lock.lock
+    lock.lock()
     val value = map.get(key)
 
     if (value.isDefined) {
       val ret = value.get
-      lock.unlock
+      lock.unlock()
       return ret
     }
 
     val promise = Promise[Value]()
     map.put(key, promise.future)
-    lock.unlock
+    lock.unlock()
 
     val f = fn()
 
     f onComplete {
-      case _ => lock.lock
+      case _ => lock.lock()
                 map.remove(key)
-                lock.unlock
+                lock.unlock()
                 promise.completeWith(f)
     }
 

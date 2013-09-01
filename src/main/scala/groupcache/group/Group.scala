@@ -19,13 +19,13 @@ package groupcache.group
 import groupcachepb.GetRequest
 import scala.concurrent._
 import ExecutionContext.Implicits.global
-import scala.util.Random
+import scala.util.{Failure, Success, Random}
 import com.google.protobuf.ByteString
 import groupcache.peers.{Peer, PeerPicker}
 import groupcache.lru.{CacheStats, SynchronizedCache}
 import groupcache.singleflight.SingleFlight
 import scala.Some
-import groupcache.util.ByteView
+import groupcache.ByteView
 
 /**
  * A group is a set of peers participating in a distributed cache.  Values
@@ -58,7 +58,7 @@ class Group private[groupcache](
 
   private val mainCache = new SynchronizedCache(maxEntries)
   private val hotCache = new SynchronizedCache(maxEntries)
-  private val stats = new GroupStats
+  val groupStats = new GroupStats
 
   // Ensures that a key's value is not loaded multiple times due to
   // a rush of concurrent calls to fetch a particular key.
@@ -75,12 +75,12 @@ class Group private[groupcache](
    * @return The Future value of the cache entry in the form of a byte view.
    */
   def get(key: String, context: Option[Any] = None): Future[ByteView] = {
-    this.stats.gets.incrementAndGet()
+    this.groupStats.gets.incrementAndGet()
     val promise = Promise[ByteView]()
 
     lookupCache(key) match {
       case Some(byteView: ByteView) => {
-        this.stats.cacheHits.incrementAndGet()
+        this.groupStats.cacheHits.incrementAndGet()
         promise.success(byteView)
         promise.future
       }
@@ -107,35 +107,47 @@ class Group private[groupcache](
    * @return The Future value of the cache entry in the form of a byte view.
    */
   private def load(key: String, context: Option[Any]): Future[ByteView] = {
-    this.stats.loads.incrementAndGet()
+    this.groupStats.loads.incrementAndGet()
 
     val result = loadGroup.execute(key, () => {
-      this.stats.loadsDeduped.incrementAndGet
+      this.groupStats.loadsDeduped.incrementAndGet
 
       peerPicker.pickPeer(key) match {
         case None => {
           val localFuture = loadLocally(key, context)
-          localFuture onFailure {
-            case _ => this.stats.localLoadErrors.incrementAndGet()
+          val promise = Promise[ByteView]()
+
+          localFuture onComplete {
+            case Success(localVal) => {
+              this.groupStats.localLoads.incrementAndGet
+              this.populateCache(key, localVal, this.mainCache)
+              promise.success(localVal)
+            }
+            case Failure(t) => {
+              this.groupStats.localLoadErrors.incrementAndGet()
+              promise.failure(t)
+            }
           }
 
-          localFuture.map(localVal => {
-            this.stats.localLoads.incrementAndGet
-            this.populateCache(key, localVal, this.mainCache)
-            localVal
-          })
+          promise.future
         }
 
         case Some(p: Peer) => {
           val peerFuture = getFromPeer(p, key, context)
-          peerFuture onFailure {
-            case _ => this.stats.peerErrors.incrementAndGet()
+          val promise = Promise[ByteView]()
+
+          peerFuture onComplete {
+            case Success(peerVal) => {
+              this.groupStats.peerLoads.incrementAndGet()
+              promise.success(peerVal)
+            }
+            case Failure(t) => {
+              this.groupStats.peerErrors.incrementAndGet()
+              promise.failure(t)
+            }
           }
 
-          peerFuture.map(peerValue => {
-            this.stats.peerLoads.incrementAndGet()
-            peerValue
-          })
+          promise.future
         }
       }
     })
@@ -216,8 +228,8 @@ class Group private[groupcache](
     cache.add(key, value)
 
     while (true) {
-      val mainBytes = this.mainCache.byteCount
-      val hotBytes = this.hotCache.byteCount
+      val mainBytes = this.mainCache.stats.bytes
+      val hotBytes = this.hotCache.stats.bytes
 
       if (mainBytes + hotBytes <= this.maxCacheBytes) {
         return
