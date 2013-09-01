@@ -17,16 +17,6 @@ line to your build file:
 libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0"
 ```
 
-## Building
-
-scala-groupcache is built using SBT 0.12.3.
-
-If you are using IntelliJ, you can use the sbt-idea plugin to generate the project files.  Additionally, you will need
-to configure the IntelliJ project to mark the target/scala-2.10/src_managed/scala folder as a Source Folder rather than
-an Excluded Folder.  This is because the build uses [sbt-scalabuff](https://github.com/sbt/sbt-scalabuff) to generate
-Scala code from the [groupcache protobuf](https://github.com/golang/groupcache/blob/master/groupcachepb/groupcache.proto)
-definition, and the code that is generated under src_managed/ is excluded from source control.
-
 ## Basic usage
 
 ```scala
@@ -113,6 +103,16 @@ object BasicUsage extends App {
   Await.result(futureValue, 500 millis)
 }
 ```
+
+## Building
+
+scala-groupcache is built using SBT 0.12.3.
+
+If you are using IntelliJ, you can use the sbt-idea plugin to generate the project files.  Additionally, you will need
+to configure the IntelliJ project to mark the target/scala-2.10/src_managed/scala folder as a Source Folder rather than
+an Excluded Folder.  This is because the build uses [sbt-scalabuff](https://github.com/sbt/sbt-scalabuff) to generate
+Scala code from the [groupcache protobuf](https://github.com/golang/groupcache/blob/master/groupcachepb/groupcache.proto)
+definition, and the code that is generated under src_managed/ is excluded from source control.
 
 
 ## Differences from the original Go implementation
