@@ -19,7 +19,7 @@ libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0"
 
 ## Building
 
-scala-groupcache is built using sbt 0.12.3.
+scala-groupcache is built using SBT 0.12.3.
 
 If you are using IntelliJ, you can use the sbt-idea plugin to generate the project files.  Additionally, you will need
 to configure the IntelliJ project to mark the target/scala-2.10/src_managed/scala folder as a Source Folder rather than
