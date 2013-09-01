@@ -6,8 +6,6 @@ name := "scala-groupcache"
 
 version := "0.5-SNAPSHOT"
 
-scalaVersion := "2.10.2"
-
 resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= Seq(

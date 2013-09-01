@@ -47,7 +47,7 @@ class HttpPeerPickerSpec extends WordSpec with ShouldMatchers {
       peer should equal (None)
     }
 
-    "pllow its available peers to be updated" in {
+    "allow its available peers to be updated" in {
       val picker = new HttpPeerPicker(80, Array[URL]())
       picker.setPeerUrls(Array(new URL("http://localhost:80"), new URL("http://peer:80")))
       val peer = picker.pickPeer("key")
