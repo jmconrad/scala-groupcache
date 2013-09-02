@@ -1,26 +1,5 @@
-# scala-groupcache
+package examples.basicusage
 
-An implementation of [groupcache](https://github.com/golang/groupcache) in Scala.
-
-[![Build Status](https://api.travis-ci.org/jmconrad/scala-groupcache.png)](http://travis-ci.org/jmconrad/scala-groupcache)
-
-## Getting scala-groupcache
-
-The current version is 0.5.0, which is built against Scala 2.10.x.
-
-If you are using SBT, you will **(soon)** be able to pull it down from the SonaType OSS repository by adding the following
-line to your build file:
-
-```scala
-libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0-SNAPSHOT"
-```
-
-However, until the artifacts are published to SonaType, you will need to clone this repo and build using SBT.  Instructions
-for building are given below.
-
-## Basic usage
-
-```scala
 import scala.concurrent.{Await, future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -90,6 +69,7 @@ object BasicUsage extends App {
   futureValue onComplete {
     case Success(value) => {
       // Do something useful with the requested value.
+
       println(s"Received value '$value'")
     }
     case Failure(t) => {
@@ -97,29 +77,10 @@ object BasicUsage extends App {
       // the exception appropriately here.
     }
   }
+
+  // Blocks until the async get has completed so the fetched
+  // value can be printed before the program exits.  Don't
+  // do this in real code.
+  Await.result(futureValue, 500 millis)
 }
-```
 
-## Building
-
-scala-groupcache is built using SBT 0.12.3.
-
-If you are using IntelliJ, you can use the sbt-idea plugin to generate the project files.  Additionally, you will need
-to configure the IntelliJ project to mark the target/scala-2.10/src_managed/scala folder as a Source Folder rather than
-an Excluded Folder.  This is because the build uses [sbt-scalabuff](https://github.com/sbt/sbt-scalabuff) to generate
-Scala code from the [groupcache protobuf](https://github.com/golang/groupcache/blob/master/groupcachepb/groupcache.proto)
-definition, and the code that is generated under src_managed/ is excluded from source control.
-
-
-## Differences from the original Go implementation
-
-In most cases scala-groupcache tries to stick pretty closely to the behavior of the Go implementation.  The primary
-area in which that is not the case is with potentially expensive operations that block.  Rather than following suit with
-the Go implementation that blocks on HTTP requests and cache filling operations, scala-groupcache instead adopts a
-non-blocking approach using Scala Futures.
-
-
-## Dependencies
-
-- [ScalaBuff](https://github.com/SandroGrzicic/ScalaBuff) - Used to generate Scala case classes from the groupcache protobuf definition.
-- [Finagle](https://github.com/twitter/finagle) - Used for fetching and serving cache values over HTTP in a non-blocking way.

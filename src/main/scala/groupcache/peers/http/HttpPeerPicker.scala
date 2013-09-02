@@ -85,8 +85,9 @@ class HttpPeerPicker(private val baseUrl: URL,
   }
 
   /**
-   * Computes the checksum of the given key, which will be.
-   * used to determine which peer will "own" a given value
+   * Computes the checksum of the given key, which will be
+   * used to determine which peer will own the corresponding
+   * value.
    */
   private def checksum(key: String): Long = {
     val crc = new CRC32
