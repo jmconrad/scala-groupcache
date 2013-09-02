@@ -1,6 +1,6 @@
 scalaVersion := "2.10.2"
 
-organization := "org.groupcache.examples"
+organization := "org.groupcache"
 
 name := "scala-groupcache-examples"
 

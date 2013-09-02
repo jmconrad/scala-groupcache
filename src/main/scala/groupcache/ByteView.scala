@@ -20,7 +20,7 @@ package groupcache
  * A ByteView holds an immutable view of bytes
  * @param value Either a byte array or a string that will be exposed as a view of bytes
  */
-class ByteView(private[groupcache] var value: Either[Array[Byte], String]) /*extends AnyVal*/ {
+class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*/ {
   /**
    * Gets the length of this view
    */

@@ -8,33 +8,32 @@ An implementation of [groupcache](https://github.com/golang/groupcache) in Scala
 
 The current version is 0.5.0, which is built against Scala 2.10.x.
 
-If you are using SBT, you will **(soon)** be able to pull it down from the SonaType OSS repository by adding the following
+If you are using sbt, you will **(soon)** be able to pull it down from the Sonatype OSS repository by adding the following
 line to your build file:
 
 ```scala
 libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0-SNAPSHOT"
 ```
 
-However, until the artifacts are published to SonaType, you will need to clone this repo and build using SBT.  Instructions
+However, until the artifacts are published to Sonatype, you will need to clone this repo and build using sbt.  Instructions
 for building are given below.
 
 ## Basic usage
 
 ```scala
-import scala.concurrent.{Await, future}
+import scala.concurrent.future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
+import java.net.URL
 import groupcache._
 import groupcache.peers.http.{HttpPeer, HttpPeerPicker}
 import groupcache.Implicits._
-import java.net.URL
 
 object BasicUsage extends App {
   // URL of the peer running in the current process.
   val myUrl = "http://localhost:8080"
 
-  // URLs of all peers that will participate in the group.
+  // URLs of all peers that will participate in the cache.
   val allUrls = Array[URL]("http://localhost:8080")
 
   // Determines which peer owns a particular key.  The set of available
@@ -102,7 +101,7 @@ object BasicUsage extends App {
 
 ## Building
 
-scala-groupcache is built using SBT 0.12.3.
+scala-groupcache is built using sbt 0.12.3.
 
 If you are using IntelliJ, you can use the sbt-idea plugin to generate the project files.  Additionally, you will need
 to configure the IntelliJ project to mark the target/scala-2.10/src_managed/scala folder as a Source Folder rather than

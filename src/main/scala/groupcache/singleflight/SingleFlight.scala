@@ -54,14 +54,14 @@ class SingleFlight[Key, Value] {
     }
 
     val promise = Promise[Value]()
-    map.put(key, promise.future)
+    map += key -> promise.future
     lock.unlock()
 
     val f = fn()
 
     f onComplete {
       case _ => lock.lock()
-                map.remove(key)
+                map -= key
                 lock.unlock()
                 promise.completeWith(f)
     }

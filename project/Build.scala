@@ -2,13 +2,13 @@ import sbt._
 import Keys._
 import scalabuff.ScalaBuffPlugin._
 
-object build extends Build {
+object GroupCacheBuild extends Build {
   lazy val buildSettings = Defaults.defaultSettings ++ Seq (
     libraryDependencies ++= Seq("net.sandrogrzicic" %% "scalabuff-runtime" % "1.3.5"),
-    scalacOptions ++= Seq("-encoding", "utf8", "-unchecked", "-deprecation", "-Xlint", "-Ywarn-all")
+    scalacOptions ++= Seq("-feature", "-encoding", "utf8", "-unchecked", "-deprecation", "-Xlint", "-Ywarn-all")
   )
 
-  object sonatype extends PublishToSonatype(build) {
+  object sonatype extends PublishToSonatype(GroupCacheBuild) {
     def projectUrl    = "https://github.com/jmconrad/scala-groupcache"
     def developerId   = "jmconrad"
     def developerName = "Josh Conrad"
