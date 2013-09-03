@@ -38,7 +38,7 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
   private val onEvicted = (key: String, value: ByteView) => {
     rwLock.writeLock.lock()
     try {
-      numBytes -= (key.getBytes.length + value.length).toLong
+      numBytes -= (key.getBytes("UTF-8").length + value.length).toLong
       numEvictions += 1
     }
     finally {
@@ -59,7 +59,7 @@ class SynchronizedCache(private val maxEntries: Int = 0) {
     rwLock.writeLock.lock()
     try {
       lru.add(key, value)
-      numBytes += (key.getBytes.length + value.length).toLong
+      numBytes += (key.getBytes("UTF-8").length + value.length).toLong
     }
     finally {
       rwLock.writeLock.unlock()

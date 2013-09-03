@@ -59,7 +59,7 @@ class GroupSpec extends WordSpec with ShouldMatchers with MockFactory {
       group.groupStats.peerLoads.get should equal (0)
 
       val mainCacheStats = group.cacheStats(MainCache)
-      mainCacheStats.bytes should equal (("key".getBytes.length + "value".getBytes.length).toLong)
+      mainCacheStats.bytes should equal (("key".getBytes("UTF-8").length + "value".getBytes("UTF-8").length).toLong)
       mainCacheStats.evictions should equal (0)
       mainCacheStats.gets should equal (1)
       mainCacheStats.hits should equal (0)
@@ -87,7 +87,7 @@ class GroupSpec extends WordSpec with ShouldMatchers with MockFactory {
       group.groupStats.peerLoads.get should equal (0)
 
       val mainCacheStats = group.cacheStats(MainCache)
-      mainCacheStats.bytes should equal (("key".getBytes.length + "value".getBytes.length).toLong)
+      mainCacheStats.bytes should equal (("key".getBytes("UTF-8").length + "value".getBytes("UTF-8").length).toLong)
       mainCacheStats.evictions should equal (0)
       mainCacheStats.gets should equal (2)
       mainCacheStats.hits should equal (1)
@@ -153,7 +153,7 @@ class GroupSpec extends WordSpec with ShouldMatchers with MockFactory {
         def get(request: GetRequest, context: Option[Any]): Future[GetResponse] = {
           wasGetCalled = true
           val promise = Promise[GetResponse]()
-          val response = new GetResponse(Some(ByteString.copyFrom("value".getBytes)))
+          val response = new GetResponse(Some(ByteString.copyFrom("value".getBytes("UTF-8"))))
           promise.success(response)
           promise.future
         }

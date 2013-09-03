@@ -91,7 +91,7 @@ class HttpPeerPicker(private val baseUrl: URL,
    */
   private def checksum(key: String): Long = {
     val crc = new CRC32
-    val bytes = key.getBytes
+    val bytes = key.getBytes("UTF-8")
     crc.update(bytes, 0, bytes.length)
     crc.getValue
   }

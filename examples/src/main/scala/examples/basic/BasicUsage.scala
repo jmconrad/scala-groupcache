@@ -17,9 +17,9 @@ import org.jboss.netty.handler.codec.http.HttpRequest
  * For example, from sbt on the console:
  * run 0 http://localhost:9001 http://localhost:9002 http://localhost:9003 http://localhost:9004
  *
- * This will expect 4 peers to participate, with index 0 (http://localhost:9001) correpsonding
- * to the current peer (process).  You can of course run multiple peers by running
- * multiple instances of sbt on the terminal and specifying a different peer index for each.
+ * This will expect 4 peers to participate, with index 0 (http://localhost:9001) corresponding
+ * to the current peer.  You can of course run multiple peers by running multiple instances
+ * of sbt on the terminal and specifying a different peer index for each.
  */
 object BasicUsage extends App {
   if (args.length < 2) {

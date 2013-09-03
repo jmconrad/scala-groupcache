@@ -26,7 +26,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
    */
   def length: Int = value match {
     case v if v.isLeft => v.left.get.length
-    case v => v.right.get.getBytes.length
+    case v => v.right.get.getBytes("UTF-8").length
   }
 
   /**
@@ -34,7 +34,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
    */
   def byteSlice: Array[Byte] = value match {
     case v if v.isLeft => v.left.get.clone()
-    case v => v.right.get.getBytes
+    case v => v.right.get.getBytes("UTF-8")
   }
 
   /**
@@ -76,7 +76,7 @@ class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*
    */
   def copy(dest: Array[Byte]): Unit = value match {
     case v if v.isLeft => v.left.get.copyToArray(dest)
-    case v => v.right.get.getBytes().copyToArray(dest)
+    case v => v.right.get.getBytes("UTF-8").copyToArray(dest)
   }
 
   /**

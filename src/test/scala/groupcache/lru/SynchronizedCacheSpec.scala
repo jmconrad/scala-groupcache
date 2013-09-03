@@ -85,7 +85,7 @@ class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
       val key = "key"
       val value = "value"
       cache.add(key, value)
-      cache.stats.bytes should equal (key.getBytes.length + value.getBytes.length)
+      cache.stats.bytes should equal (key.getBytes("UTF-8").length + value.getBytes("UTF-8").length)
     }
 
     "track its item count" in {

@@ -52,7 +52,7 @@ class ImplicitsSpec extends FlatSpec with ShouldMatchers {
   "A byte view" should "be implicitly converted into a byte array" in {
     val byteView = ByteView("test")
     val byteArray: Array[Byte] = byteView
-    byteArray should equal ("test".getBytes)
+    byteArray should equal ("test".getBytes("UTF-8"))
   }
 }
 
