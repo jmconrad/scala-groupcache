@@ -4,21 +4,17 @@ An implementation of [groupcache](https://github.com/golang/groupcache) in Scala
 
 [![Build Status](https://api.travis-ci.org/jmconrad/scala-groupcache.png)](http://travis-ci.org/jmconrad/scala-groupcache)
 
-## Getting scala-groupcache
-
 The current version is 0.5.0, which is built against Scala 2.10.x.
 
-If you are using sbt, you will **(soon)** be able to pull it down from the Sonatype OSS repository by adding the following
-line to your build file:
+If you are using sbt, you can pull this library down from the Sonatype OSS repository by adding the following lines to your build:
 
 ```scala
+resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
+
 libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0-SNAPSHOT"
 ```
 
-However, until the artifacts are published to Sonatype, you will need to clone this repo and build using sbt.  Instructions
-for building are given below.
-
-## Basic usage
+## Basic Usage
 
 ```scala
 import scala.concurrent.future
