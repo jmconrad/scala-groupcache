@@ -24,6 +24,7 @@ import groupcachepb.{GetResponse, GetRequest}
 import groupcache.peers.Peer
 import groupcache.group.GroupRegister
 import java.net._
+import com.twitter.conversions.time._
 import com.twitter.finagle.builder.{ServerBuilder, ClientBuilder}
 import com.twitter.finagle.http.Http
 import com.twitter.finagle.Service
@@ -79,7 +80,14 @@ class HttpPeer(private val baseUrl: URL,
     val key = URLEncoder.encode(request.`key`, "UTF-8")
     val path = s"$basePath/$group/$key"
     val hostAndPort = s"$host:$port"
-    val httpClient = ClientBuilder().codec(Http()).hosts(hostAndPort).hostConnectionLimit(1).build()
+    val httpClient = ClientBuilder()
+      .codec(Http())
+      .hosts(hostAndPort)
+      .hostConnectionLimit(1)
+      .tcpConnectTimeout(1.second)
+      .retries(0)
+      .build()
+
     val httpRequest = new DefaultHttpRequest(HTTP_1_1, GET, path)
     val responseFuture = httpClient(httpRequest)
     val promise = Promise[GetResponse]()
@@ -129,7 +137,8 @@ class HttpPeer(private val baseUrl: URL,
     val service = getHttpService(groupRegister)
 
     try {
-      ServerBuilder().codec(Http())
+      ServerBuilder()
+        .codec(Http())
         .bindTo(new InetSocketAddress(this.port))
         .name("GroupCacheHttpServer")
         .build(service)
