@@ -4,7 +4,7 @@ organization := "org.groupcache"
 
 name := "scala-groupcache"
 
-version := "0.5.0-SNAPSHOT"
+version := "0.5.0"
 
 resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 

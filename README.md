@@ -4,14 +4,12 @@ An implementation of [groupcache](https://github.com/golang/groupcache) in Scala
 
 [![Build Status](https://api.travis-ci.org/jmconrad/scala-groupcache.png)](http://travis-ci.org/jmconrad/scala-groupcache)
 
-The current version is 0.5.0, which is built against Scala 2.10.x.
+The current version is 0.5.0, which is built against Scala 2.10.2.
 
-If you are using sbt, you can pull this library down from the Sonatype OSS repository by adding the following lines to your build:
+If you are using sbt, you can pull this library down from the Sonatype OSS repository by adding the following line to your build:
 
 ```scala
-resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
-
-libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0-SNAPSHOT"
+libraryDependencies += "org.groupcache" %% "scala-groupcache" % "0.5.0"
 ```
 
 ## Basic Usage
@@ -74,8 +72,8 @@ object BasicUsage extends App {
 
   // Ask the group for the cached value associated with the given key.
   // If it is determined that the peer running in the current
-  // process is the owner (or the value is in the current process'
-  // hot cache), the value will be fetched locally.  Otherwise,
+  // process is the owner of the key (or the value is in the current
+  // process' hot cache), the value will be fetched locally.  Otherwise,
   // the value will be fetched from a (potentially remote) peer
   // over HTTP.
   val futureValue = group.get("key")
