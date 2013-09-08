@@ -4,7 +4,7 @@ organization := "org.groupcache"
 
 name := "scala-groupcache"
 
-version := "0.5.0"
+version := "0.6.0"
 
 resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
@@ -14,4 +14,6 @@ libraryDependencies ++= Seq(
   "com.twitter" %% "finagle-core" % "6.3.0",
   "com.twitter" %% "finagle-http" % "6.3.0"
 )
+
+scalacOptions ++= Seq("-feature", "-language:postfixOps")
 

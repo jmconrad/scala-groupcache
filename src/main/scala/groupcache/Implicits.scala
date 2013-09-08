@@ -17,6 +17,7 @@ limitations under the License.
 package groupcache
 
 import java.net.URL
+import scala.language.implicitConversions
 
 object Implicits {
   /**
