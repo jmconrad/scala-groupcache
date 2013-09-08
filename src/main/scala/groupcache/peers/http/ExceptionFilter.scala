@@ -40,7 +40,12 @@ private[groupcache] class ExceptionFilter extends SimpleFilter[HttpRequest, Http
       }
 
       val errorResponse = new DefaultHttpResponse(HTTP_1_1, statusCode)
-      errorResponse.setContent(copiedBuffer(error.getStackTraceString, UTF_8))
+      val msg = error.getMessage match {
+        case null => "Error fetching cached value."
+        case message => message
+      }
+
+      errorResponse.setContent(copiedBuffer(msg, UTF_8))
 
       errorResponse
     }

@@ -36,7 +36,7 @@ import groupcachepb.GetResponse
  *                  any optional value that this peer will treat as opaque.
  */
 private[groupcache] class CacheService(
-  private[this] val contextFn: Option[(HttpRequest) => Option[Any]]) extends Service[GroupHttpRequest, HttpResponse] {
+  private[this] val contextFn: Option[(HttpRequest) => Option[Any]] = None) extends Service[GroupHttpRequest, HttpResponse] {
 
   def apply(groupRequest: GroupHttpRequest): Future[HttpResponse] = {
     val context: Option[Any] = contextFn match {
