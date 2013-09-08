@@ -26,14 +26,14 @@ class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
     "get a value for a key that has just been added" in {
       val cache = new SynchronizedCache
       cache.add("key", "value")
-      cache.get("key") should equal (Some(ByteView("value")))
+      assert(cache.get("key").get.sameElements(ByteView("value")))
     }
 
     "update a value when a key already exists" in {
       val cache = new SynchronizedCache
       cache.add("key", "value")
       cache.add("key", "updatedValue")
-      cache.get("key") should equal (Some(ByteView("updatedValue")))
+      assert(cache.get("key").get.sameElements(ByteView("updatedValue")))
     }
 
     "not get a value for a non-existent key" in {
@@ -54,8 +54,8 @@ class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
       cache.add("key2", "value2")
       cache.add("key3", "value3")
       cache.get("key1") should equal (None)
-      cache.get("key2") should equal (Some(ByteView("value2")))
-      cache.get("key3") should equal (Some(ByteView("value3")))
+      assert(cache.get("key2").get.sameElements(ByteView("value2")))
+      assert(cache.get("key3").get.sameElements(ByteView("value3")))
     }
 
     "not evict entries that have been recently accessed via get" in {
@@ -64,9 +64,9 @@ class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
       cache.add("key2", "value2")
       cache.get("key1")
       cache.add("key3", "value3")
-      cache.get("key1") should equal (Some(ByteView("value1")))
+      assert(cache.get("key1").get.sameElements(ByteView("value1")))
       cache.get("key2") should equal (None)
-      cache.get("key3") should equal (Some(ByteView("value3")))
+      assert(cache.get("key3").get.sameElements(ByteView("value3")))
     }
 
     "not evict entries that have been recently accessed via add" in {
@@ -75,9 +75,9 @@ class SynchronizedCacheSpec extends WordSpec with ShouldMatchers {
       cache.add("key2", "value2")
       cache.add("key1", "updatedValue")
       cache.add("key3", "value3")
-      cache.get("key1") should equal (Some(ByteView("updatedValue")))
+      assert(cache.get("key1").get.sameElements(ByteView("updatedValue")))
       cache.get("key2") should equal (None)
-      cache.get("key3") should equal (Some(ByteView("value3")))
+      assert(cache.get("key3").get.sameElements(ByteView("value3")))
     }
 
     "track its byte count" in {

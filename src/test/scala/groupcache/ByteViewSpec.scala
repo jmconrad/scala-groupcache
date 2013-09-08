@@ -92,16 +92,10 @@ class ByteViewSpec extends WordSpec with ShouldMatchers {
       dest.take(str.length).deep should equal(str.map(elem => elem.toByte).toArray.deep)
     }
 
-    "use the string's hash code" in {
-      val str = "test_string"
-      val view = ByteView(str)
-      view.hashCode should equal (str.hashCode)
-    }
-
     "equal another byte view containing the same string" in {
       val view1 = ByteView("test")
       val view2 = ByteView("test")
-      assert(view1 === view2)
+      assert(view1.sameElements(view2))
     }
 
     "equal another byte view containing a byte array with the same content" in {
@@ -109,7 +103,7 @@ class ByteViewSpec extends WordSpec with ShouldMatchers {
       val bytesContent = strContent.map(elem => elem.toByte).toArray
       val view1 = ByteView(strContent)
       val view2 = ByteView(bytesContent)
-      assert(view1 === view2)
+      assert(view1.sameElements(view2))
     }
   }
 
@@ -137,14 +131,15 @@ class ByteViewSpec extends WordSpec with ShouldMatchers {
       val bytes = Array[Byte](1, 2, 3, 4, 5)
       val slice = Array[Byte](2, 3)
       val view = ByteView(bytes)
-      assert(view.slice(1, 3) === ByteView(slice))
+      assert(view.slice(1, 3).value.sameElements(slice))
     }
 
     "return all but its first 2 elements when sliceFrom(2) is called" in {
       val bytes = Array[Byte](1, 2, 3, 4, 5)
       val slice = Array[Byte](3, 4, 5)
       val view = ByteView(bytes)
-      assert(view.sliceFrom(2) === ByteView(slice))
+
+      assert(view.sliceFrom(2).value.sameElements(slice))
     }
 
     "copy its contents to a byte array" in {
@@ -164,7 +159,7 @@ class ByteViewSpec extends WordSpec with ShouldMatchers {
     "equal another byte view containing the same array content" in {
       val view1 = ByteView(Array[Byte]('t', 'e', 's', 't'))
       val view2 = ByteView(Array[Byte]('t', 'e', 's', 't'))
-      assert(view1 === view2)
+      assert(view1.sameElements(view2))
     }
   }
 }

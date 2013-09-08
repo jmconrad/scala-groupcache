@@ -47,7 +47,7 @@ class GroupSpec extends WordSpec with ShouldMatchers with MockFactory {
       val future = group.get("key")
       val result = Await.result(future, 500 millis)
 
-      result should equal (ByteView("value"))
+      assert(result.sameElements(ByteView("value")))
 
       group.groupStats.cacheHits.get should equal (0)
       group.groupStats.loads.get should equal (1)
@@ -170,7 +170,7 @@ class GroupSpec extends WordSpec with ShouldMatchers with MockFactory {
       val result = Await.result(future, 500 millis)
 
       wasGetCalled should equal (true)
-      result should equal (ByteView("value"))
+      assert(result.sameElements(ByteView("value")))
 
       group.groupStats.cacheHits.get should equal (0)
       group.groupStats.loads.get should equal (1)

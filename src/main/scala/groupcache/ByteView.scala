@@ -17,140 +17,82 @@ limitations under the License.
 package groupcache
 
 /**
- * A ByteView holds an immutable view of bytes
- * @param value Either a byte array or a string that will be exposed as a view of bytes
+ * A ByteView holds an immutable view of bytes.
+ * @param value An array of bytes.
  */
-class ByteView(private val value: Either[Array[Byte], String]) /*extends AnyVal*/ {
+class ByteView private[groupcache](val value: Array[Byte]) extends AnyVal {
   /**
-   * Gets the length of this view
+   * Gets the length of this view.
    */
-  def length: Int = value match {
-    case v if v.isLeft => v.left.get.length
-    case v => v.right.get.getBytes("UTF-8").length
+  def length: Int = {
+    value.length
   }
 
   /**
-   * Gets a copy of the data as a byte slice
+   * Gets a copy of the data as a byte slice.
    */
-  def byteSlice: Array[Byte] = value match {
-    case v if v.isLeft => v.left.get.clone()
-    case v => v.right.get.getBytes("UTF-8")
+  def byteSlice: Array[Byte] = {
+    value.clone
   }
 
   /**
-   * Gets a string representation of this view
+   * Gets a string representation of this view.
    */
-  override def toString: String = value match {
-    case v if v.isLeft => new String(v.left.get)
-    case v => v.right.get
+  override def toString: String = {
+    new String(value)
   }
 
   /**
-   * Gets the byte at the given index
+   * Gets the byte at the given index.
    */
-  def at(index: Int): Byte = value match {
-    case v if v.isLeft => v.left.get(index)
-    case v => v.right.get.charAt(index).toByte
+  def at(index: Int): Byte = {
+    value(index)
   }
 
   /**
-   * Gets a new ByteView containing the bytes in the given range
+   * Gets a new ByteView containing the bytes in the given range.
    */
-  def slice(from: Int, to: Int): ByteView = value match {
-    case v if v.isLeft => new ByteView(Left(v.left.get.slice(from, to)))
-    case v => new ByteView(Right(v.right.get.substring(from, to)))
+  def slice(from: Int, to: Int): ByteView = {
+    new ByteView(value.slice(from, to))
   }
 
   /**
-   * Gets a new ByteView containing the bytes starting from the given index
+   * Gets a new ByteView containing the bytes starting from the given index.
    */
-  def sliceFrom(from: Int): ByteView = value match {
-    case v if v.isLeft => new ByteView(Left(v.left.get.drop(from)))
-    case v => new ByteView(Right(v.right.get.drop(from)))
+  def sliceFrom(from: Int): ByteView = {
+    new ByteView(value.drop(from))
   }
 
   /**
    * Copies the contents of this view into the given byte array.  If the
    * array is smaller than the size of this view, it will copy as much
-   * of this view as the array will hold
+   * of this view as the array will hold.
    */
-  def copy(dest: Array[Byte]): Unit = value match {
-    case v if v.isLeft => v.left.get.copyToArray(dest)
-    case v => v.right.get.getBytes("UTF-8").copyToArray(dest)
+  def copy(dest: Array[Byte]): Unit = {
+    value.copyToArray(dest)
   }
 
   /**
-   * Gets the hash code of this view
+   * Determines if the given byte array contains the same
+   * byte elements as this view.
    */
-  override def hashCode: Int = value match {
-    case v if v.isLeft => v.left.get.hashCode
-    case v => v.right.get.hashCode
-  }
-
-  /**
-   * Determine if the given object is equal to this view
-   */
-  override def equals(other: Any): Boolean = value match {
-    case v if v.isLeft && other.isInstanceOf[ByteView] => other.asInstanceOf[ByteView].equalsBytes(v.left.get)
-    case v if other.isInstanceOf[ByteView] => other.asInstanceOf[ByteView].equalsString(v.right.get)
-    case _ => false
-  }
-
-  /**
-   * Determines if the given string is equal to this view
-   */
-  private def equalsString(str: String): Boolean = {
-    if (value.isRight) {
-      return value.right.get.equals(str)
-    }
-
-    val bytes = value.left.get
-    if (str.length != bytes.length) {
-      return false
-    }
-
-    val mismatch = bytes.view.zipWithIndex.exists(elem => elem._1 != str.charAt(elem._2))
-    if (mismatch) {
-      return false
-    }
-
-    true
-  }
-
-  /**
-   * Determines if the given byte array is equal to this view
-   */
-  private def equalsBytes(bytes: Array[Byte]): Boolean = {
-    if (value.isLeft) {
-      return bytes.deep == value.left.get.deep
-    }
-
-    val str = value.right.get
-    if (str.length != bytes.length) {
-      return false
-    }
-
-    val mismatch = bytes.view.zipWithIndex.exists(elem => elem._1 != str.charAt(elem._2))
-    if (mismatch) {
-      return false
-    }
-
-    true
+  def sameElements(that: ByteView): Boolean = {
+    value.sameElements(that.value)
   }
 }
 
 /**
- * Companion object containing convenience methods
+ * A ByteView holds an immutable view of bytes.
  */
 object ByteView {
   /**
-   * Constructs a ByteView out of the given string
+   * Constructs a ByteView out of the given string.
    */
-  def apply(str: String) = new ByteView(Right(str))
+  def apply(str: String) = new ByteView(str.getBytes("UTF-8"))
 
   /**
-   * Constructs a ByteView out of the given byte array
+   * Constructs a ByteView out of the given byte array.
    */
-  def apply(bytes: Array[Byte]) = new ByteView(Left(bytes))
+  def apply(bytes: Array[Byte]) = new ByteView(bytes)
 }
 
