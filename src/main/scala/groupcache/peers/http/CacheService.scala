@@ -46,6 +46,7 @@ private[groupcache] class CacheService(
       case _ => None
     }
 
+    groupRequest.group.groupStats.serverRequests.incrementAndGet()
     val futureValue = groupRequest.group.get(groupRequest.key, context)
     val promise = new Promise[HttpResponse]()
 

@@ -63,5 +63,10 @@ class GroupStats {
    * Number of unsuccessful loads that were performed locally.
    */
   val localLoadErrors = new AtomicInteger(0)
+
+  /**
+   * Number of gets that came over the network from peers.
+   */
+  val serverRequests = new AtomicInteger(0)
 }
 

@@ -16,10 +16,11 @@ limitations under the License.
 
 package groupcache.peers.http
 
-import java.util.zip.CRC32
 import java.net.URL
 import java.util.concurrent.locks.ReentrantLock
 import groupcache.peers.{Peer, PeerPicker}
+import groupcache.hash.RingHash
+import groupcache.Implicits._
 
 /**
  * Picks an HTTP peer as an owner of a given key.
@@ -27,9 +28,11 @@ import groupcache.peers.{Peer, PeerPicker}
  * @param peerUrls URL's of known HTTP peers.
  */
 class HttpPeerPicker(private val baseUrl: URL,
-                     private var peerUrls: Array[URL]) extends PeerPicker {
+                     peerUrls: Array[URL]) extends PeerPicker {
 
   private val lock = new ReentrantLock()
+  private val defaultReplicas = 3
+  private var peers = this.setPeers(peerUrls)
 
   /**
    * Constructs an HTTP peer picker using the given port.
@@ -47,18 +50,13 @@ class HttpPeerPicker(private val baseUrl: URL,
    */
   override def pickPeer(key: String): Option[Peer] = {
     var pickedPeer: Option[Peer] = None
-    var sum = checksum(key).toInt
-
-    if (sum < 0) {
-      sum *= -1
-    }
 
     lock.lock()
     try {
-      if (this.peerUrls.length > 0) {
-        val potential = this.peerUrls(sum % this.peerUrls.length)
+      if (!this.peers.isEmpty) {
+        val potential = this.peers.get(key)
 
-        if (potential != baseUrl) {
+        if (potential != baseUrl.toString) {
           pickedPeer = Some(new HttpPeer(potential))
         }
       }
@@ -74,10 +72,10 @@ class HttpPeerPicker(private val baseUrl: URL,
    * Updates this instance's peers in cases where peers change dynamically
    * during the lifetime of this picker.
    */
-  def setPeerUrls(peerUrls: Array[URL]): Unit = {
+  def setPeerUrls(peerUrls: Array[URL]): RingHash = {
     lock.lock()
     try {
-      this.peerUrls = peerUrls
+      this.setPeers(peerUrls)
     }
     finally {
       lock.unlock()
@@ -85,15 +83,14 @@ class HttpPeerPicker(private val baseUrl: URL,
   }
 
   /**
-   * Computes the checksum of the given key, which will be
-   * used to determine which peer will own the corresponding
-   * value.
+   * Updates this instance's peers in cases where peers change dynamically
+   * during the lifetime of this picker.
    */
-  private def checksum(key: String): Long = {
-    val crc = new CRC32
-    val bytes = key.getBytes("UTF-8")
-    crc.update(bytes, 0, bytes.length)
-    crc.getValue
+  private def setPeers(peerUrls: Array[URL]): RingHash = {
+    this.peers = new RingHash(this.defaultReplicas)
+    this.peers.add(peerUrls.map(elem => elem.toString):_*)
+
+    this.peers
   }
 }
 
